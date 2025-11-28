@@ -35,20 +35,17 @@ const KNIGHT_TABLE = [
   -50,-40,-20,-30,-30,-20,-40,-50
 ];
 
-// Difficulty configurations with 2x scaling per level (10/20, 15/20, 20/20 strength)
+// Difficulty configurations with optimized parameters
 const DIFFICULTY_CONFIG = {
-  easy: { depth: 4, randomness: 0.2, timeLimit: 1500, minDepth: 5 },
-  moderate: { depth: 8, randomness: 0.05, timeLimit: 3500, minDepth: 9 },
-  hard: { depth: 12, randomness: 0, timeLimit: 6000, minDepth: 13 }
+  easy: { depth: 2, randomness: 0.4, timeLimit: 150 },
+  moderate: { depth: 3, randomness: 0.15, timeLimit: 400 },
+  hard: { depth: 4, randomness: 0.05, timeLimit: 800 }
 };
 
-export const useBotGame = (initialDifficulty: Difficulty = 'moderate') => {
+export const useBotGame = (difficulty: Difficulty = 'moderate') => {
   const [chess, setChess] = useState(new Chess());
   const [playerColor] = useState<'white' | 'black'>('white');
   const [isThinking, setIsThinking] = useState(false);
-  const [difficulty, setDifficulty] = useState<Difficulty>(initialDifficulty);
-  const [playerWinStreak, setPlayerWinStreak] = useState(0);
-  const [playerLossStreak, setPlayerLossStreak] = useState(0);
   const { user, refreshProfile } = useAuth();
   const { awardMatchXP } = useXPSystem();
 
@@ -137,28 +134,19 @@ export const useBotGame = (initialDifficulty: Difficulty = 'moderate') => {
     }
   }, [evaluateBoard]);
 
-  // Get best move with optimized search and retry logic
-  const getBotMove = useCallback(async (game: Chess, retryAttempt: number = 0): Promise<Move> => {
+  // Get best move with optimized search
+  const getBotMove = useCallback(async (game: Chess): Promise<Move | null> => {
     const config = DIFFICULTY_CONFIG[difficulty];
     const moves = game.moves({ verbose: true });
-    
-    // Verify game is not over using Chess.js logic
-    if (moves.length === 0) {
-      // Game is truly over, throw error instead of returning null
-      throw new Error('No legal moves available - game is over');
-    }
+    if (moves.length === 0) return null;
 
     // Apply randomness for lower difficulties
-    if (Math.random() < config.randomness && retryAttempt === 0) {
+    if (Math.random() < config.randomness) {
       return moves[Math.floor(Math.random() * Math.min(moves.length, 5))];
     }
 
-    // Increase time limit on retry
-    const timeLimit = retryAttempt > 0 ? config.timeLimit * 2 : config.timeLimit;
-    const searchDepth = retryAttempt > 0 ? Math.max(config.depth, config.minDepth) : config.depth;
-    
     const startTime = Date.now();
-    let bestMove = moves[0]; // Always initialize with a legal move
+    let bestMove = moves[0];
     let bestValue = -Infinity;
 
     // Move ordering: evaluate captures first
@@ -170,11 +158,11 @@ export const useBotGame = (initialDifficulty: Difficulty = 'moderate') => {
 
     for (const move of moves) {
       // Time limit check
-      if (Date.now() - startTime > timeLimit) break;
+      if (Date.now() - startTime > config.timeLimit) break;
 
       const testGame = new Chess(game.fen());
       testGame.move(move);
-      const value = minimax(testGame, searchDepth - 1, -Infinity, Infinity, false, startTime, timeLimit);
+      const value = minimax(testGame, config.depth - 1, -Infinity, Infinity, false, startTime, config.timeLimit);
 
       if (value > bestValue) {
         bestValue = value;
@@ -182,64 +170,19 @@ export const useBotGame = (initialDifficulty: Difficulty = 'moderate') => {
       }
     }
 
-    // Safety fallback: if search didn't complete and we haven't retried
-    if (bestValue === -Infinity && retryAttempt === 0) {
-      console.log('Retrying bot move search with increased time...');
-      return getBotMove(game, 1);
-    }
-
-    // Final fallback: always return a legal move (bestMove is initialized with moves[0])
     return bestMove;
   }, [difficulty, minimax]);
 
-  // Adaptive difficulty adjustment
-  const adjustDifficulty = useCallback((playerWon: boolean) => {
-    if (playerWon) {
-      const newStreak = playerWinStreak + 1;
-      setPlayerWinStreak(newStreak);
-      setPlayerLossStreak(0);
-      
-      // Increase difficulty after 2 wins in a row
-      if (newStreak >= 2) {
-        if (difficulty === 'easy') {
-          setDifficulty('moderate');
-          console.log('Adaptive difficulty: Upgraded to MODERATE');
-        } else if (difficulty === 'moderate') {
-          setDifficulty('hard');
-          console.log('Adaptive difficulty: Upgraded to HARD');
-        }
-        setPlayerWinStreak(0);
-      }
-    } else {
-      const newStreak = playerLossStreak + 1;
-      setPlayerLossStreak(newStreak);
-      setPlayerWinStreak(0);
-      
-      // Decrease difficulty after 2 losses in a row
-      if (newStreak >= 2) {
-        if (difficulty === 'hard') {
-          setDifficulty('moderate');
-          console.log('Adaptive difficulty: Downgraded to MODERATE');
-        } else if (difficulty === 'moderate') {
-          setDifficulty('easy');
-          console.log('Adaptive difficulty: Downgraded to EASY');
-        }
-        setPlayerLossStreak(0);
-      }
-    }
-  }, [difficulty, playerWinStreak, playerLossStreak]);
-
   // Bot move execution
   const makeBotMove = useCallback(async (currentGame: Chess) => {
-    // Use Chess.js to verify game status
     if (currentGame.isGameOver()) return currentGame;
 
     setIsThinking(true);
 
-    try {
-      // Get bot move with retry logic
-      const move = await getBotMove(currentGame);
-      
+    // Get bot move
+    const move = await getBotMove(currentGame);
+    
+    if (move) {
       // Apply move
       currentGame.move(move);
       
@@ -255,9 +198,6 @@ export const useBotGame = (initialDifficulty: Difficulty = 'moderate') => {
         if (fromSquare) fromSquare.classList.add('highlight-from');
         if (toSquare) toSquare.classList.add('highlight-to');
       });
-    } catch (error) {
-      console.error('Bot move error:', error);
-      // Game is likely over, do nothing
     }
 
     setIsThinking(false);
@@ -301,26 +241,13 @@ export const useBotGame = (initialDifficulty: Difficulty = 'moderate') => {
   const resetGame = useCallback(() => {
     setChess(new Chess());
     setIsThinking(false);
-    // Reset streaks on new game
-    setPlayerWinStreak(0);
-    setPlayerLossStreak(0);
   }, []);
 
   const getGameStatus = useCallback(() => {
-    // Use Chess.js logic only, never rely on engine output
-    const moves = chess.moves();
-    const isInCheck = chess.isCheck();
-    
-    // No legal moves
-    if (moves.length === 0) {
-      if (isInCheck) return 'checkmate';
-      return 'stalemate';
-    }
-    
-    // Other draw conditions
+    if (chess.isCheckmate()) return 'checkmate';
     if (chess.isDraw()) return 'draw';
-    if (isInCheck) return 'check';
-    
+    if (chess.isStalemate()) return 'stalemate';
+    if (chess.isCheck()) return 'check';
     return 'active';
   }, [chess]);
 
@@ -362,9 +289,6 @@ export const useBotGame = (initialDifficulty: Difficulty = 'moderate') => {
       
       await refreshProfile();
       
-      // Adjust difficulty based on result
-      adjustDifficulty(playerWon);
-      
       setTimeout(() => {
         if (playerWon) {
           awardMatchXP('win', { fastCheckmate: isFastCheckmate });
@@ -375,18 +299,12 @@ export const useBotGame = (initialDifficulty: Difficulty = 'moderate') => {
         }
       }, 500);
       
-      // Build FEN history from move history using verbose moves
       const fenHistory: string[] = [new Chess().fen()];
       const tempChess = new Chess();
-      const moveHistory = chess.history({ verbose: true });
-      
-      moveHistory.forEach(move => {
-        try {
-          tempChess.move({ from: move.from, to: move.to, promotion: move.promotion });
-          fenHistory.push(tempChess.fen());
-        } catch (error) {
-          console.error('Error building FEN history:', error, move);
-        }
+      const history = chess.history();
+      history.forEach(move => {
+        tempChess.move(move);
+        fenHistory.push(tempChess.fen());
       });
       
       await supabase.from('match_history').insert({
@@ -413,7 +331,7 @@ export const useBotGame = (initialDifficulty: Difficulty = 'moderate') => {
     };
     
     saveGameToHistory();
-  }, [chess.isGameOver(), difficulty, user, playerColor, awardMatchXP, refreshProfile, adjustDifficulty]);
+  }, [chess.isGameOver(), difficulty, user, playerColor, awardMatchXP, refreshProfile]);
 
   return {
     chess,
@@ -424,7 +342,6 @@ export const useBotGame = (initialDifficulty: Difficulty = 'moderate') => {
     isThinking,
     gameStatus: getGameStatus(),
     gameOver: chess.isGameOver(),
-    engineReady: true,
-    currentDifficulty: difficulty
+    engineReady: true
   };
 };

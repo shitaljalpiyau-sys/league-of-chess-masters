@@ -11,6 +11,8 @@ import { MainLayout } from "./layouts/MainLayout";
 import { RequireAuth } from "./components/RequireAuth";
 import Index from "./pages/Index";
 import Landing from "./pages/Landing";
+import NewLanding from "./pages/NewLanding";
+import FuturisticIntro from "./pages/FuturisticIntro";
 import PlayNow from "./pages/PlayNow";
 import Profile from "./pages/Profile";
 import PublicProfile from "./pages/PublicProfile";
@@ -49,6 +51,9 @@ const App = () => (
               <Routes>
                 {/* Landing page */}
                 <Route path="/" element={<Landing />} />
+                <Route path="/landing" element={<Landing />} />
+                <Route path="/new" element={<NewLanding />} />
+                <Route path="/intro" element={<FuturisticIntro />} />
                 
                 {/* Main app routes with MainLayout */}
                 <Route element={<MainLayout />}>

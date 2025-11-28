@@ -102,7 +102,7 @@ export const Header = () => {
 
   return (
     <>
-      <header className="fixed top-0 left-0 right-0 z-50 h-16 glass-panel" style={{
+      <header className="fixed top-0 left-0 right-0 z-50 h-16 glass-panel transition-all duration-300" style={{
         background: 'rgba(16, 20, 28, 0.95)',
         backdropFilter: 'blur(24px)',
         borderBottom: '1px solid rgba(61, 201, 119, 0.15)',

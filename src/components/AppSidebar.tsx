@@ -73,10 +73,10 @@ export const AppSidebar = () => {
                     <NavLink 
                       to={item.url} 
                       end
-                      className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-muted-foreground hover:bg-card-dark hover:text-foreground transition-all duration-200 group"
+                      className="neon-glow-hover flex items-center gap-3 px-3 py-2.5 rounded-lg text-muted-foreground hover:bg-card-dark hover:text-foreground transition-all duration-200 group"
                       activeClassName="bg-primary/10 text-primary border-l-2 border-primary font-medium"
                     >
-                      <item.icon className="h-5 w-5 flex-shrink-0 transition-all duration-200" />
+                      <item.icon className="h-5 w-5 flex-shrink-0 icon-hover transition-all duration-200" />
                       {open && (
                         <span className="text-sm font-medium transition-opacity duration-300 truncate">
                           {item.title}

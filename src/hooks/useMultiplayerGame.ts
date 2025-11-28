@@ -150,10 +150,10 @@ export const useMultiplayerGame = (gameId: string | null) => {
     
     let result: 'win' | 'draw' | 'loss';
     const isWhitePlayer = gameData.white_player_id === user.id;
-    const whiteWon = gameData.result === '1-0';
-    const blackWon = gameData.result === '0-1';
+    const whiteWon = gameData.result === 'white_wins' || gameData.result === '1-0';
+    const blackWon = gameData.result === 'black_wins' || gameData.result === '0-1';
     
-    if (gameData.result === '1/2-1/2') {
+    if (gameData.result === 'draw' || gameData.result === '1/2-1/2') {
       result = 'draw';
     } else if ((isWhitePlayer && whiteWon) || (!isWhitePlayer && blackWon)) {
       result = 'win';
@@ -366,11 +366,11 @@ export const useMultiplayerGame = (gameId: string | null) => {
       // Show success messages for game end
       if (data.status === 'completed') {
         ChessSounds.playGameEnd();
-        if (data.result === '1-0') {
+        if (data.result === 'white_wins' || data.result === '1-0') {
           toast.success('White wins by checkmate!');
-        } else if (data.result === '0-1') {
+        } else if (data.result === 'black_wins' || data.result === '0-1') {
           toast.success('Black wins by checkmate!');
-        } else if (data.result === '1/2-1/2') {
+        } else if (data.result === 'draw' || data.result === '1/2-1/2') {
           toast.success('Game ended in a draw!');
         }
       }

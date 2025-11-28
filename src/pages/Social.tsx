@@ -8,13 +8,14 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useFriends } from "@/hooks/useFriends";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { usePresence } from "@/hooks/usePresence";
 import { useTypingIndicator } from "@/hooks/useTypingIndicator";
 import { ChatBubble } from "@/components/ChatBubble";
+import { ChatInterface } from "@/components/ChatInterface";
 import {
   Collapsible,
   CollapsibleContent,
@@ -76,9 +77,11 @@ const Social = () => {
   const { friends, friendRequests, acceptFriendRequest, rejectFriendRequest, removeFriend } = useFriends();
   const { user, profile } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   
   const [activeTab, setActiveTab] = useState("messages");
   const [selectedFriend, setSelectedFriend] = useState<string | null>(null);
+  const [showChatInterface, setShowChatInterface] = useState(false);
   const [messageInput, setMessageInput] = useState("");
   const [messages, setMessages] = useState<Message[]>([]);
   const [chatRooms, setChatRooms] = useState<ChatRoom[]>([]);
@@ -92,6 +95,18 @@ const Social = () => {
   });
   const chatEndRef = useRef<HTMLDivElement>(null);
   const messageInputRef = useRef<HTMLInputElement>(null);
+
+  // Handle navigation state for opening messaging
+  useEffect(() => {
+    if (location.state?.openMessaging && location.state?.friendId) {
+      const friendId = location.state.friendId;
+      setSelectedFriend(friendId);
+      setShowChatInterface(true);
+      setActiveTab("messages");
+      // Clear the state
+      navigate(location.pathname, { replace: true, state: {} });
+    }
+  }, [location.state, navigate, location.pathname]);
 
   // Get friend IDs for presence tracking
   const friendIds = friends.map(f => f.id);
@@ -431,6 +446,24 @@ const Social = () => {
     isOpen: groupStates[groupName] ?? true,
   }));
 
+  // Show chat interface if friend is selected
+  if (showChatInterface && selectedFriend) {
+    const friendData = friends.find(f => f.id === selectedFriend);
+    if (friendData) {
+      return (
+        <ChatInterface
+          friendId={selectedFriend}
+          friendUsername={friendData.username}
+          friendAvatar={null}
+          onClose={() => {
+            setShowChatInterface(false);
+            setSelectedFriend(null);
+          }}
+        />
+      );
+    }
+  }
+
   return (
     <div className="min-h-screen pb-20 pt-20 px-6">
       <div className="max-w-7xl mx-auto">
@@ -472,17 +505,13 @@ const Social = () => {
                         {chatRooms.map((room) => (
                           <div
                             key={room.friendId}
-                            onClick={() => {
-                              setSelectedFriend(room.friendId);
-                              markAsRead(room.friendId);
-                            }}
-                            className={`flex items-center gap-3 p-3 rounded-lg cursor-pointer transition-colors ${
+                            className={`flex items-center gap-3 p-3 rounded-lg transition-colors group ${
                               selectedFriend === room.friendId
                                 ? 'bg-primary/10 border border-primary/30'
-                                : 'hover:bg-card-dark'
+                                : 'hover:bg-card-dark border border-transparent'
                             }`}
                           >
-                            <div className="relative">
+                            <div className="relative flex-shrink-0">
                               <Avatar className="h-10 w-10 border-2 border-primary/30">
                                 <AvatarImage src={room.friendAvatar || undefined} />
                                 <AvatarFallback className="bg-primary/10 text-primary">
@@ -499,11 +528,24 @@ const Social = () => {
                               <div className="flex items-center justify-between mb-1">
                                 <p className="text-sm font-semibold truncate">{room.friendUsername}</p>
                                 {room.unreadCount > 0 && (
-                                  <Badge className="bg-primary text-xs">{room.unreadCount}</Badge>
+                                  <Badge className="bg-primary text-xs flex-shrink-0">{room.unreadCount}</Badge>
                                 )}
                               </div>
                               <p className="text-xs text-muted-foreground truncate">{room.lastMessage}</p>
                             </div>
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              className="h-8 w-8 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setSelectedFriend(room.friendId);
+                                setShowChatInterface(true);
+                                markAsRead(room.friendId);
+                              }}
+                            >
+                              <MessageCircle className="h-4 w-4" />
+                            </Button>
                           </div>
                         ))}
                       </div>
@@ -718,6 +760,7 @@ const Social = () => {
                                         onClick={(e) => {
                                           e.stopPropagation();
                                           setSelectedFriend(friend.id);
+                                          setShowChatInterface(true);
                                           setActiveTab("messages");
                                         }}
                                         title="Send Message"

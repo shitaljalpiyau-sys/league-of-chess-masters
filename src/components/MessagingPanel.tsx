@@ -1,6 +1,5 @@
-import { X, Send, UserPlus, Check, XIcon } from "lucide-react";
+import { X, Check, XIcon, MessageCircle, CheckCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -8,6 +7,7 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
+import { ChatInterface } from "./ChatInterface";
 
 interface MessagingPanelProps {
   open: boolean;
@@ -41,6 +41,7 @@ interface DirectMessage {
 export const MessagingPanel = ({ open, onClose, unreadCount, onUnreadUpdate }: MessagingPanelProps) => {
   const [friendRequests, setFriendRequests] = useState<FriendRequest[]>([]);
   const [messages, setMessages] = useState<DirectMessage[]>([]);
+  const [selectedChat, setSelectedChat] = useState<{ id: string; username: string; avatar: string | null } | null>(null);
   const { user } = useAuth();
 
   useEffect(() => {
@@ -167,22 +168,58 @@ export const MessagingPanel = ({ open, onClose, unreadCount, onUnreadUpdate }: M
     const grouped = new Map();
     messages.forEach(msg => {
       const otherUserId = msg.sender_id === user.id ? msg.receiver_id : msg.sender_id;
+      const otherUsername = msg.sender_id === user.id ? "You" : msg.sender.username;
+      const otherAvatar = msg.sender.avatar_url;
+      
       if (!grouped.has(otherUserId)) {
         grouped.set(otherUserId, {
           userId: otherUserId,
-          username: msg.sender.username,
-          avatar: msg.sender.avatar_url,
+          username: otherUsername,
+          avatar: otherAvatar,
           lastMessage: msg.message,
           time: new Date(msg.created_at),
           unread: msg.receiver_id === user.id && !msg.read ? 1 : 0,
         });
+      } else {
+        const existing = grouped.get(otherUserId);
+        if (new Date(msg.created_at) > existing.time) {
+          existing.lastMessage = msg.message;
+          existing.time = new Date(msg.created_at);
+        }
+        if (msg.receiver_id === user.id && !msg.read) {
+          existing.unread += 1;
+        }
       }
     });
     
-    return Array.from(grouped.values());
+    return Array.from(grouped.values()).sort((a, b) => b.time.getTime() - a.time.getTime());
+  };
+
+  const markAllAsRead = async () => {
+    if (!user) return;
+
+    await supabase
+      .from("direct_messages")
+      .update({ read: true })
+      .eq("receiver_id", user.id)
+      .eq("read", false);
+
+    loadMessages();
+    toast.success("All messages marked as read");
   };
 
   if (!open) return null;
+
+  if (selectedChat) {
+    return (
+      <ChatInterface
+        friendId={selectedChat.id}
+        friendUsername={selectedChat.username}
+        friendAvatar={selectedChat.avatar}
+        onClose={() => setSelectedChat(null)}
+      />
+    );
+  }
 
   return (
     <>
@@ -197,14 +234,27 @@ export const MessagingPanel = ({ open, onClose, unreadCount, onUnreadUpdate }: M
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-border bg-card-dark/50">
           <h2 className="text-lg font-bold text-foreground">Messages</h2>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={onClose}
-            className="h-9 w-9 text-muted-foreground hover:text-foreground hover:bg-card-dark"
-          >
-            <X className="h-5 w-5" />
-          </Button>
+          <div className="flex items-center gap-2">
+            {unreadCount > 0 && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={markAllAsRead}
+                className="text-xs text-muted-foreground hover:text-foreground"
+              >
+                <CheckCheck className="h-4 w-4 mr-1" />
+                Mark all read
+              </Button>
+            )}
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={onClose}
+              className="h-9 w-9 text-muted-foreground hover:text-foreground hover:bg-card-dark"
+            >
+              <X className="h-5 w-5" />
+            </Button>
+          </div>
         </div>
 
         {/* Tabs */}
@@ -225,9 +275,9 @@ export const MessagingPanel = ({ open, onClose, unreadCount, onUnreadUpdate }: M
                 {groupMessagesByUser().map((chat) => (
                   <div
                     key={chat.userId}
-                    className="flex items-center gap-3 p-3 rounded-lg bg-card-dark/50 hover:bg-card-dark border border-transparent hover:border-border transition-all cursor-pointer"
+                    className="flex items-center gap-3 p-3 rounded-lg bg-card-dark/50 hover:bg-card-dark border border-transparent hover:border-border transition-all group"
                   >
-                    <Avatar className="h-10 w-10 border-2 border-primary/30">
+                    <Avatar className="h-10 w-10 border-2 border-primary/30 flex-shrink-0">
                       <AvatarImage src={chat.avatar || undefined} alt={chat.username} />
                       <AvatarFallback className="bg-primary/10 text-primary">
                         {chat.username[0]}
@@ -238,7 +288,7 @@ export const MessagingPanel = ({ open, onClose, unreadCount, onUnreadUpdate }: M
                         <p className="text-sm font-semibold text-foreground truncate">
                           {chat.username}
                         </p>
-                        <span className="text-xs text-muted-foreground">
+                        <span className="text-xs text-muted-foreground flex-shrink-0">
                           {new Date(chat.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                         </span>
                       </div>
@@ -246,13 +296,23 @@ export const MessagingPanel = ({ open, onClose, unreadCount, onUnreadUpdate }: M
                         {chat.lastMessage}
                       </p>
                     </div>
-                    {chat.unread > 0 && (
-                      <div className="flex-shrink-0 w-5 h-5 rounded-full bg-primary flex items-center justify-center">
-                        <span className="text-xs font-bold text-primary-foreground">
-                          {chat.unread}
-                        </span>
-                      </div>
-                    )}
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      {chat.unread > 0 && (
+                        <div className="w-5 h-5 rounded-full bg-primary flex items-center justify-center">
+                          <span className="text-xs font-bold text-primary-foreground">
+                            {chat.unread}
+                          </span>
+                        </div>
+                      )}
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity"
+                        onClick={() => setSelectedChat({ id: chat.userId, username: chat.username, avatar: chat.avatar })}
+                      >
+                        <MessageCircle className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </div>
                 ))}
                 {groupMessagesByUser().length === 0 && (

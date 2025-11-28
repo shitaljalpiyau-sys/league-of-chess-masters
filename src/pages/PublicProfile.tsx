@@ -347,7 +347,11 @@ const PublicProfile = () => {
                       </Button>
                     )}
                     
-                    <Button variant="outline" className="gap-2 hover:scale-105 active:scale-95 transition-transform">
+                    <Button 
+                      onClick={() => navigate("/social", { state: { openMessaging: true, friendId: userId } })}
+                      variant="outline" 
+                      className="gap-2 hover:scale-105 active:scale-95 transition-transform"
+                    >
                       <MessageCircle className="h-4 w-4" />
                       Message
                     </Button>

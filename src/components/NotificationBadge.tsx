@@ -35,7 +35,8 @@ export const NotificationBadge = ({ children, onClick }: NotificationBadgeProps)
         .from("challenges")
         .select("*", { count: "exact", head: true })
         .eq("challenged_id", user.id)
-        .eq("status", "pending");
+        .eq("status", "pending")
+        .eq("is_expired", false);
 
       setCount((messageCount || 0) + (requestCount || 0) + (challengeCount || 0));
     };

@@ -75,21 +75,26 @@ const PublicProfile = () => {
     };
   }, [userId]);
 
-  // Fetch leaderboard rank
+  // Fetch leaderboard rank based on XP
   useEffect(() => {
     if (!profile) return;
     
     const fetchRank = async () => {
+      if (profile.xp <= 0) {
+        setLeaderboardRank(0);
+        return;
+      }
+      
       const { count } = await supabase
         .from("profiles")
         .select("*", { count: "exact", head: true })
-        .gt("rating", profile.rating);
+        .gt("xp", profile.xp);
       
       setLeaderboardRank((count || 0) + 1);
     };
     
     fetchRank();
-  }, [profile?.rating]);
+  }, [profile?.xp]);
 
   const fetchProfile = async () => {
     if (!userId) return;
@@ -322,7 +327,7 @@ const PublicProfile = () => {
                   )}
                 </div>
                 <p className="text-muted-foreground mb-4">
-                  Points: {profile.points}
+                  Current Rank: {leaderboardRank > 0 ? `#${leaderboardRank}` : 'Unranked'}
                 </p>
                 
                 {!isOwnProfile && user && (
@@ -440,7 +445,9 @@ const PublicProfile = () => {
               </div>
               <div>
                 <Crown className="h-5 w-5 text-primary mb-2" />
-                <div className="text-2xl font-bold font-rajdhani">#{leaderboardRank}</div>
+                <div className="text-2xl font-bold font-rajdhani">
+                  {leaderboardRank > 0 ? `#${leaderboardRank}` : 'Unranked'}
+                </div>
                 <div className="text-xs text-muted-foreground">Leaderboard Rank</div>
               </div>
             </div>

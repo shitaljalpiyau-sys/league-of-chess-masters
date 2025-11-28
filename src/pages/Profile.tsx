@@ -34,11 +34,28 @@ const Profile = () => {
   
   const tier = getTierForLevel(profile?.level || 1);
   const winRate = calculateWinRate(profile?.games_won || 0, profile?.games_played || 0);
+  const [leaderboardRank, setLeaderboardRank] = useState<number>(0);
+
+  // Fetch leaderboard rank
+  useEffect(() => {
+    if (!profile) return;
+    
+    const fetchRank = async () => {
+      const { count } = await supabase
+        .from("profiles")
+        .select("*", { count: "exact", head: true })
+        .gt("rating", profile.rating);
+      
+      setLeaderboardRank((count || 0) + 1);
+    };
+    
+    fetchRank();
+  }, [profile?.rating]);
   
   const stats = [
     { label: "Games Played", value: profile?.games_played || 0, icon: Target },
     { label: "Win Rate", value: `${winRate}%`, icon: Trophy },
-    { label: "Current Rating", value: profile?.rating || 1200, icon: TrendingUp },
+    { label: "Leaderboard Rank", value: `#${leaderboardRank}`, icon: TrendingUp },
     { label: "Total Points", value: profile?.points || 0, icon: Star },
   ];
 

@@ -110,9 +110,9 @@ export const useMultiplayerGame = (gameId: string | null) => {
               }
             }
             
-            // Handle game end ONCE
+            // Handle game end ONCE - check flag first
             if (updatedGame.status === 'completed' && prevGame.status === 'active' && !gameEndedRef.current) {
-              gameEndedRef.current = true;
+              console.log("GameOver: Detected game completion, triggering handler");
               handleGameOver(updatedGame, newChess);
             }
             
@@ -126,7 +126,9 @@ export const useMultiplayerGame = (gameId: string | null) => {
     channelRef.current = channel;
 
     return () => {
+      // Cleanup on unmount - unsubscribe from channel
       if (channelRef.current) {
+        console.log("Cleanup: Unsubscribing from game channel on unmount");
         supabase.removeChannel(channelRef.current);
         channelRef.current = null;
       }
@@ -134,12 +136,29 @@ export const useMultiplayerGame = (gameId: string | null) => {
   }, [gameId, user?.id]);
 
   const handleGameOver = async (gameData: any, chessInstance: Chess) => {
-    if (!user?.id || !gameData.result) return;
+    // CRITICAL GUARD: Prevent double execution
+    if (gameEndedRef.current) {
+      console.warn("GameOver: Already processed, skipping");
+      return;
+    }
+    
+    if (!user?.id || !gameData.result) {
+      console.error("GameOver: Missing user or result data");
+      return;
+    }
 
-    // Unsubscribe from realtime immediately
+    // Mark as ended IMMEDIATELY to prevent re-entry
+    gameEndedRef.current = true;
+
+    // Unsubscribe from realtime immediately to stop receiving updates
     if (channelRef.current) {
-      supabase.removeChannel(channelRef.current);
-      channelRef.current = null;
+      try {
+        await supabase.removeChannel(channelRef.current);
+        channelRef.current = null;
+        console.log("GameOver: Realtime channel unsubscribed");
+      } catch (err) {
+        console.error("GameOver: Failed to unsubscribe channel", err);
+      }
     }
 
     // Play game end sound
@@ -264,8 +283,14 @@ export const useMultiplayerGame = (gameId: string | null) => {
   };
 
   const makeMove = async (from: string, to: string, promotion?: string) => {
-    // Don't allow moves if game is over
-    if (!game || game.status !== 'active' || gameEndedRef.current) {
+    // CRITICAL: Don't allow moves if game is over
+    if (gameEndedRef.current) {
+      console.warn("GameOver: Move blocked - game already ended");
+      return false;
+    }
+
+    if (!game || game.status !== 'active') {
+      console.warn("GameOver: Move blocked - game not active");
       return false;
     }
 
@@ -339,6 +364,12 @@ export const useMultiplayerGame = (gameId: string | null) => {
     }
 
     try {
+      // CRITICAL: Check again before server call
+      if (gameEndedRef.current) {
+        console.warn("GameOver: Server call blocked - game ended during optimistic update");
+        return false;
+      }
+
       // Validate on server (authoritative)
       const { data, error } = await supabase.functions.invoke('validate-move', {
         body: {
@@ -350,6 +381,12 @@ export const useMultiplayerGame = (gameId: string | null) => {
       });
 
       if (error || !data?.success) {
+        // Don't revert if game ended during the call
+        if (gameEndedRef.current) {
+          console.log("GameOver: Move failed but game ended, ignoring error");
+          return false;
+        }
+
         // Revert optimistic update
         const revertChess = new Chess();
         if (game.pgn) {
@@ -378,6 +415,13 @@ export const useMultiplayerGame = (gameId: string | null) => {
       return true;
     } catch (error) {
       console.error('Error making move:', error);
+      
+      // Don't show errors if game already ended
+      if (gameEndedRef.current) {
+        console.log("GameOver: Network error but game ended, ignoring");
+        return false;
+      }
+
       // Revert optimistic update
       const revertChess = new Chess();
       if (game.pgn) {

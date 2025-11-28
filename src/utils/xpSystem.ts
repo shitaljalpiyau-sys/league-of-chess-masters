@@ -97,9 +97,9 @@ export const calculateLevelFromXP = (totalXP: number): { level: number; currentL
  * XP rewards for match results
  */
 export const XP_REWARDS = {
-  WIN: 18,
+  WIN: 50,
   DRAW: 6,
-  LOSS: 0,
+  LOSS: -18,
 };
 
 /**

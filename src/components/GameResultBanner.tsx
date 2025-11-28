@@ -13,7 +13,12 @@ export const GameResultBanner = ({ result, playerColor, onRematch }: GameResultB
   const navigate = useNavigate();
   
   const getResultInfo = () => {
-    if (result === '1-0') {
+    // Support both formats: 'white_wins'/'1-0' and 'black_wins'/'0-1'
+    const isWhiteWin = result === 'white_wins' || result === '1-0';
+    const isBlackWin = result === 'black_wins' || result === '0-1';
+    const isDraw = result === 'draw' || result === '1/2-1/2';
+    
+    if (isWhiteWin) {
       return {
         text: playerColor === 'white' ? 'Victory!' : 'Defeat',
         subtext: 'White wins by checkmate',
@@ -21,7 +26,7 @@ export const GameResultBanner = ({ result, playerColor, onRematch }: GameResultB
         color: playerColor === 'white' ? 'text-primary' : 'text-destructive',
         bg: playerColor === 'white' ? 'bg-primary/10' : 'bg-destructive/10'
       };
-    } else if (result === '0-1') {
+    } else if (isBlackWin) {
       return {
         text: playerColor === 'black' ? 'Victory!' : 'Defeat',
         subtext: 'Black wins by checkmate',
@@ -29,7 +34,7 @@ export const GameResultBanner = ({ result, playerColor, onRematch }: GameResultB
         color: playerColor === 'black' ? 'text-primary' : 'text-destructive',
         bg: playerColor === 'black' ? 'bg-primary/10' : 'bg-destructive/10'
       };
-    } else {
+    } else if (isDraw) {
       return {
         text: 'Draw',
         subtext: 'Game ended in a draw',
@@ -38,6 +43,15 @@ export const GameResultBanner = ({ result, playerColor, onRematch }: GameResultB
         bg: 'bg-muted/10'
       };
     }
+    
+    // Fallback
+    return {
+      text: 'Game Over',
+      subtext: result,
+      icon: Swords,
+      color: 'text-muted-foreground',
+      bg: 'bg-muted/10'
+    };
   };
   
   const info = getResultInfo();

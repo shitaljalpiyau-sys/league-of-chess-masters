@@ -27,7 +27,8 @@ export const useXPSystem = () => {
     }
 
     try {
-      const newTotalXP = (profile.xp || 0) + xpAmount;
+      // Calculate new XP, but cap at 0 (can't go negative)
+      const newTotalXP = Math.max(0, (profile.xp || 0) + xpAmount);
       const { level: newLevel, currentLevelXP, nextLevelXP } = calculateLevelFromXP(newTotalXP);
       const oldLevel = profile.level || 1;
       const oldTier = getTierForLevel(oldLevel);
@@ -47,9 +48,10 @@ export const useXPSystem = () => {
       // Refresh profile to get updated data
       await refreshProfile();
 
-      // Show XP gain notification
+      // Show XP gain/loss notification
+      const displayXP = xpAmount >= 0 ? `+${xpAmount}` : `${xpAmount}`;
       toast({
-        title: `+${xpAmount} XP`,
+        title: `${displayXP} XP`,
         description: reason,
         duration: 3000,
       });

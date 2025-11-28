@@ -4,7 +4,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { useNavigate } from "react-router-dom";
 import { Send } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { motion } from "framer-motion";
@@ -16,11 +17,13 @@ interface ChatMessage {
   message: string;
   created_at: string;
   username?: string;
+  avatar_url?: string | null;
 }
 
 const GlobalChat = () => {
   const { profile } = useAuth();
   const { toast } = useToast();
+  const navigate = useNavigate();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [newMessage, setNewMessage] = useState("");
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -32,25 +35,27 @@ const GlobalChat = () => {
       const { data, error } = await supabase
         .from("global_chat_messages")
         .select("*")
+        .eq("class", profile.class)
         .order("created_at", { ascending: true })
-        .limit(100);
+        .limit(1000);
 
       if (error) {
         console.error("Error fetching messages:", error);
         return;
       }
 
-      // Fetch usernames for all messages
+      // Fetch usernames and avatars for all messages
       const userIds = [...new Set(data.map(m => m.user_id))];
       const { data: profiles } = await supabase
         .from("profiles")
-        .select("id, username")
+        .select("id, username, avatar_url")
         .in("id", userIds);
 
-      const profileMap = new Map(profiles?.map(p => [p.id, p.username]) || []);
+      const profileMap = new Map(profiles?.map(p => [p.id, { username: p.username, avatar_url: p.avatar_url }]) || []);
       const messagesWithUsernames = data.map(msg => ({
         ...msg,
-        username: profileMap.get(msg.user_id) || "Unknown"
+        username: profileMap.get(msg.user_id)?.username || "Unknown",
+        avatar_url: profileMap.get(msg.user_id)?.avatar_url || null
       }));
 
       setMessages(messagesWithUsernames);
@@ -72,17 +77,26 @@ const GlobalChat = () => {
         async (payload) => {
           const newMsg = payload.new as ChatMessage;
           
-          // Fetch username for new message
+          // Fetch username and avatar for new message
           const { data: userProfile } = await supabase
             .from("profiles")
-            .select("username")
+            .select("username, avatar_url")
             .eq("id", newMsg.user_id)
             .single();
 
-          setMessages(prev => [...prev, {
-            ...newMsg,
-            username: userProfile?.username || "Unknown"
-          }]);
+          setMessages(prev => {
+            const updated = [...prev, {
+              ...newMsg,
+              username: userProfile?.username || "Unknown",
+              avatar_url: userProfile?.avatar_url || null
+            }];
+            
+            // Keep only latest 1000 messages in state
+            if (updated.length > 1000) {
+              return updated.slice(-1000);
+            }
+            return updated;
+          });
         }
       )
       .subscribe();
@@ -107,7 +121,8 @@ const GlobalChat = () => {
       .insert({
         user_id: profile.id,
         class: profile.class,
-        message: newMessage.trim()
+        message: newMessage.trim(),
+        avatar_url: profile.avatar_url
       });
 
     if (error) {
@@ -164,8 +179,12 @@ const GlobalChat = () => {
                     msg.user_id === profile.id ? "flex-row-reverse" : ""
                   }`}
                 >
-                  <Avatar className="h-8 w-8">
-                    <AvatarFallback>
+                  <Avatar 
+                    className="h-8 w-8 cursor-pointer hover:ring-2 hover:ring-primary transition-all"
+                    onClick={() => navigate(`/profile/${msg.user_id}`)}
+                  >
+                    <AvatarImage src={msg.avatar_url || undefined} />
+                    <AvatarFallback className="bg-primary/10 text-primary">
                       {msg.username?.charAt(0).toUpperCase() || "?"}
                     </AvatarFallback>
                   </Avatar>
@@ -175,7 +194,12 @@ const GlobalChat = () => {
                     }`}
                   >
                     <div className="flex items-center gap-2">
-                      <span className="text-sm font-medium">{msg.username}</span>
+                      <span 
+                        className="text-sm font-medium cursor-pointer hover:text-primary transition-colors"
+                        onClick={() => navigate(`/profile/${msg.user_id}`)}
+                      >
+                        {msg.username}
+                      </span>
                       <span className="text-xs text-muted-foreground">
                         {new Date(msg.created_at).toLocaleTimeString()}
                       </span>

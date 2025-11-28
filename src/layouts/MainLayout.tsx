@@ -5,6 +5,7 @@ import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
 import { useAuth } from "@/contexts/AuthContext";
 import { ChallengeNotification } from "@/components/ChallengeNotification";
+import { GlobalAnimations } from "@/components/shared/GlobalAnimations";
 import { motion } from "framer-motion";
 
 export const MainLayout = () => {
@@ -13,6 +14,7 @@ export const MainLayout = () => {
 
   return (
     <SidebarProvider defaultOpen={true}>
+      <GlobalAnimations />
       <div className="min-h-screen flex w-full bg-background">
         <AppSidebar />
         <div className="flex-1 flex flex-col min-h-screen" style={{ marginLeft: 'clamp(4rem, 4rem, 260px)' }}>

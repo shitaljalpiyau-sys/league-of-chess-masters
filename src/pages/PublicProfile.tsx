@@ -46,6 +46,7 @@ const PublicProfile = () => {
   const [friendshipStatus, setFriendshipStatus] = useState<'none' | 'pending_sent' | 'pending_received' | 'friends'>('none');
   const [showChallengeDialog, setShowChallengeDialog] = useState(false);
   const [sendingChallenge, setSendingChallenge] = useState(false);
+  const [leaderboardRank, setLeaderboardRank] = useState<number>(0);
 
   useEffect(() => {
     if (!userId) return;
@@ -73,6 +74,22 @@ const PublicProfile = () => {
       supabase.removeChannel(channel);
     };
   }, [userId]);
+
+  // Fetch leaderboard rank
+  useEffect(() => {
+    if (!profile) return;
+    
+    const fetchRank = async () => {
+      const { count } = await supabase
+        .from("profiles")
+        .select("*", { count: "exact", head: true })
+        .gt("rating", profile.rating);
+      
+      setLeaderboardRank((count || 0) + 1);
+    };
+    
+    fetchRank();
+  }, [profile?.rating]);
 
   const fetchProfile = async () => {
     if (!userId) return;
@@ -275,24 +292,6 @@ const PublicProfile = () => {
     ? Math.round((profile.games_won / profile.games_played) * 100) 
     : 0;
   const tier = getTierForLevel(profile.level);
-  const [leaderboardRank, setLeaderboardRank] = useState<number>(0);
-
-  // Fetch leaderboard rank
-  useEffect(() => {
-    if (!profile) return;
-    
-    const fetchRank = async () => {
-      const { count } = await supabase
-        .from("profiles")
-        .select("*", { count: "exact", head: true })
-        .gt("rating", profile.rating);
-      
-      setLeaderboardRank((count || 0) + 1);
-    };
-    
-    fetchRank();
-  }, [profile?.rating]);
-
   const isOwnProfile = user?.id === userId;
   const canSpectate = activeMatchId;
 

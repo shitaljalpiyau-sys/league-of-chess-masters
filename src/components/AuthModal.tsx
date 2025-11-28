@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { z } from "zod";
 import { generateUsername } from "@/utils/usernameGenerator";
@@ -20,7 +21,7 @@ const signUpSchema = z.object({
 });
 
 const signInSchema = z.object({
-  username: z.string().min(3, "Username must be at least 3 characters"),
+  identifier: z.string().min(3, "Email or username must be at least 3 characters"),
   password: z.string().min(6, "Password must be at least 6 characters"),
 });
 
@@ -36,11 +37,13 @@ export const AuthModal = ({ isOpen, onClose, mode: initialMode }: AuthModalProps
   const [formData, setFormData] = useState({ 
     email: "", 
     password: "", 
-    username: generateUsername() 
+    username: generateUsername(),
+    identifier: "" // For sign-in: can be email OR username
   });
   const [usernameError, setUsernameError] = useState("");
   const [checkingUsername, setCheckingUsername] = useState(false);
   const [usernameAvailable, setUsernameAvailable] = useState<boolean | null>(null);
+  const { signIn, signUp } = useAuth();
   const { toast } = useToast();
   const isMobile = useIsMobile();
 
@@ -141,33 +144,17 @@ export const AuthModal = ({ isOpen, onClose, mode: initialMode }: AuthModalProps
           setLoading(false);
           return;
         }
-        
-        const { error } = await supabase.auth.signUp({
-          email: formData.email,
-          password: formData.password,
-          options: {
-            data: { username: formData.username },
-            emailRedirectTo: `${window.location.origin}/`,
-          },
-        });
 
-        if (error) {
-          // Check if error is username taken
-          if (error.message.includes("username") || error.message.includes("unique")) {
-            setUsernameError("Username is already taken");
-            setLoading(false);
-            return;
-          }
-          throw error;
+        // Use AuthContext signUp method
+        const { error } = await signUp(formData.email, formData.password);
+        if (!error) {
+          onClose();
         }
-
-        toast({
-          title: "Account Created!",
-          description: "Welcome to Elite League Chess Arena",
-        });
-        onClose();
       } else {
-        const validation = signInSchema.safeParse({ username: formData.username, password: formData.password });
+        const validation = signInSchema.safeParse({ 
+          identifier: formData.identifier, 
+          password: formData.password 
+        });
         if (!validation.success) {
           toast({
             title: "Validation Error",
@@ -178,44 +165,11 @@ export const AuthModal = ({ isOpen, onClose, mode: initialMode }: AuthModalProps
           return;
         }
 
-        // Look up email by username
-        const { data: profileData, error: profileError } = await supabase
-          .from("profiles")
-          .select("email")
-          .eq("username", formData.username)
-          .single();
-
-        if (profileError || !profileData) {
-          toast({
-            title: "Login Failed",
-            description: "Username not found",
-            variant: "destructive",
-          });
-          setLoading(false);
-          return;
+        // Use AuthContext signIn method (supports email or username)
+        const { error } = await signIn(formData.identifier, formData.password);
+        if (!error) {
+          onClose();
         }
-
-        // Sign in with email and password
-        const { error } = await supabase.auth.signInWithPassword({
-          email: profileData.email,
-          password: formData.password,
-        });
-
-        if (error) {
-          toast({
-            title: "Login Failed",
-            description: "Invalid username or password",
-            variant: "destructive",
-          });
-          setLoading(false);
-          return;
-        }
-
-        toast({
-          title: "Welcome Back!",
-          description: "Successfully signed in",
-        });
-        onClose();
       }
     } catch (error: any) {
       toast({
@@ -351,16 +305,19 @@ export const AuthModal = ({ isOpen, onClose, mode: initialMode }: AuthModalProps
               
               {mode === "signin" ? (
                 <div className="space-y-2">
-                  <Label htmlFor="signin-username" className="text-sm font-medium">Username</Label>
+                  <Label htmlFor="signin-identifier" className="text-sm font-medium">Email or Username</Label>
                   <Input
-                    id="signin-username"
+                    id="signin-identifier"
                     type="text"
-                    placeholder="Your username"
-                    value={formData.username}
-                    onChange={(e) => setFormData({ ...formData, username: e.target.value })}
+                    placeholder="Your email or username"
+                    value={formData.identifier}
+                    onChange={(e) => setFormData({ ...formData, identifier: e.target.value })}
                     className={`${isMobile ? "h-12 text-base" : "h-11"}`}
                     required
                   />
+                  <p className="text-xs text-muted-foreground">
+                    You can sign in with either your email address or username
+                  </p>
                 </div>
               ) : (
                 <div className="space-y-2">

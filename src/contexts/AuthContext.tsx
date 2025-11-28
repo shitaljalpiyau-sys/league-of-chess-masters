@@ -2,15 +2,23 @@ import { createContext, useContext, useEffect, useState, ReactNode } from "react
 import { User, Session } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
+import { getEmailFromIdentifier } from "@/utils/authHelpers";
+import { toast } from "@/hooks/use-toast";
 
 interface Profile {
   id: string;
+  numeric_user_id: number;
   username: string;
+  email: string;
   class: string;
   rating: number;
   points: number;
   games_played: number;
   games_won: number;
+  xp: number;
+  level: number;
+  league: string;
+  avatar_url: string | null;
   created_at: string;
 }
 
@@ -19,6 +27,8 @@ interface AuthContextType {
   session: Session | null;
   profile: Profile | null;
   loading: boolean;
+  signIn: (identifier: string, password: string) => Promise<{ error: Error | null }>;
+  signUp: (email: string, password: string) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
 }
@@ -85,6 +95,84 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     return () => subscription.unsubscribe();
   }, []);
 
+  const signIn = async (identifier: string, password: string) => {
+    try {
+      // Check if identifier is email or username
+      const email = await getEmailFromIdentifier(identifier);
+      
+      if (!email) {
+        return { error: new Error("User not found") };
+      }
+
+      const { error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (error) {
+        toast({
+          title: "Login Failed",
+          description: error.message,
+          variant: "destructive",
+        });
+        return { error };
+      }
+
+      toast({
+        title: "Welcome back!",
+        description: "You have successfully signed in.",
+      });
+
+      return { error: null };
+    } catch (error) {
+      const err = error as Error;
+      toast({
+        title: "Login Failed",
+        description: err.message,
+        variant: "destructive",
+      });
+      return { error: err };
+    }
+  };
+
+  const signUp = async (email: string, password: string) => {
+    try {
+      const redirectUrl = `${window.location.origin}/`;
+
+      const { error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          emailRedirectTo: redirectUrl,
+        },
+      });
+
+      if (error) {
+        toast({
+          title: "Signup Failed",
+          description: error.message,
+          variant: "destructive",
+        });
+        return { error };
+      }
+
+      toast({
+        title: "Account Created!",
+        description: "Welcome to the platform. Your profile has been automatically generated.",
+      });
+
+      return { error: null };
+    } catch (error) {
+      const err = error as Error;
+      toast({
+        title: "Signup Failed",
+        description: err.message,
+        variant: "destructive",
+      });
+      return { error: err };
+    }
+  };
+
   const signOut = async () => {
     await supabase.auth.signOut();
     setUser(null);
@@ -94,7 +182,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ user, session, profile, loading, signOut, refreshProfile }}>
+    <AuthContext.Provider value={{ user, session, profile, loading, signIn, signUp, signOut, refreshProfile }}>
       {children}
     </AuthContext.Provider>
   );

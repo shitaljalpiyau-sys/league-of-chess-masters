@@ -52,13 +52,31 @@ export const Header = () => {
 
   return (
     <>
-      <header className="fixed top-0 left-0 right-0 z-50 h-14 border-b border-border bg-card shadow-md">
+      <header className="fixed top-0 left-0 right-0 z-50 h-14 glass-panel scan-line-effect neon-glow" style={{
+        background: 'rgba(10, 16, 32, 0.85)',
+        backdropFilter: 'blur(24px)',
+        borderBottom: '1px solid rgba(0, 229, 255, 0.35)',
+        boxShadow: '0 8px 32px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.1), 0 4px 20px rgba(0, 229, 255, 0.15)'
+      }}>
         <div className="container mx-auto px-4 sm:px-6 h-full">
           <div className="flex h-full items-center justify-between gap-2 sm:gap-4">
-            {/* LEFT SIDE */}
-            <div className="flex items-center gap-2 sm:gap-4 flex-shrink-0">
-              <SidebarTrigger className="text-foreground hover:text-primary transition-colors" />
-              <div className="hidden xl:flex items-center gap-3">
+            {/* LEFT SIDE - Logo, Site Name, and Toggle */}
+            <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
+              {/* Logo + Site Name */}
+              <Link to="/" className="flex items-center gap-2 group">
+                <div className="w-8 h-8 glass-button rounded-lg flex items-center justify-center group-hover:scale-110 transition-all animate-neon-pulse">
+                  <Trophy className="w-5 h-5 text-primary" />
+                </div>
+                <h1 className="hidden sm:block text-lg font-bold font-rajdhani text-foreground tracking-wider group-hover:text-primary transition-colors neon-glow">
+                  ELITE LEAGUE
+                </h1>
+              </Link>
+              
+              {/* Sidebar Toggle */}
+              <SidebarTrigger className="text-foreground hover:text-primary transition-colors ml-1" />
+              
+              {/* Practice Mode Switch */}
+              <div className="hidden xl:flex items-center gap-3 ml-2">
                 <span className="text-sm font-medium text-muted-foreground whitespace-nowrap">
                   Practice Mode
                 </span>

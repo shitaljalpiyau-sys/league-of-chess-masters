@@ -4,40 +4,183 @@ import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
+import { toast } from "sonner";
 
 interface MessagingPanelProps {
   open: boolean;
   onClose: () => void;
+  unreadCount: number;
+  onUnreadUpdate: (count: number) => void;
 }
 
-export const MessagingPanel = ({ open, onClose }: MessagingPanelProps) => {
-  const [message, setMessage] = useState("");
+interface FriendRequest {
+  id: string;
+  sender_id: string;
+  sender: {
+    username: string;
+    avatar_url: string | null;
+  };
+}
 
-  // Mock data - replace with real data from backend
-  const friendRequests = [
-    { id: 1, username: "ChessMaster99", avatar: "/avatars/avatar-1.png" },
-    { id: 2, username: "KnightRider", avatar: "/avatars/avatar-2.png" },
-  ];
+interface DirectMessage {
+  id: string;
+  sender_id: string;
+  receiver_id: string;
+  message: string;
+  created_at: string;
+  read: boolean;
+  sender: {
+    username: string;
+    avatar_url: string | null;
+  };
+}
 
-  const chats = [
-    {
-      id: 1,
-      username: "QueenGambit",
-      avatar: "/avatars/avatar-3.png",
-      lastMessage: "Good game!",
-      time: "2m ago",
-      unread: 2,
-    },
-    {
-      id: 2,
-      username: "RookPlayer",
-      avatar: "/avatars/avatar-4.png",
-      lastMessage: "Want to play again?",
-      time: "1h ago",
-      unread: 0,
-    },
-  ];
+export const MessagingPanel = ({ open, onClose, unreadCount, onUnreadUpdate }: MessagingPanelProps) => {
+  const [friendRequests, setFriendRequests] = useState<FriendRequest[]>([]);
+  const [messages, setMessages] = useState<DirectMessage[]>([]);
+  const { user } = useAuth();
+
+  useEffect(() => {
+    if (!user || !open) return;
+
+    loadFriendRequests();
+    loadMessages();
+
+    // Real-time subscriptions
+    const requestsChannel = supabase
+      .channel('friend-requests')
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'friend_requests',
+        filter: `receiver_id=eq.${user.id}`,
+      }, () => {
+        loadFriendRequests();
+      })
+      .subscribe();
+
+    const messagesChannel = supabase
+      .channel('direct-messages')
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'direct_messages',
+        filter: `receiver_id=eq.${user.id}`,
+      }, () => {
+        loadMessages();
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(requestsChannel);
+      supabase.removeChannel(messagesChannel);
+    };
+  }, [user, open]);
+
+  const loadFriendRequests = async () => {
+    if (!user) return;
+
+    const { data, error } = await supabase
+      .from('friend_requests')
+      .select(`
+        id,
+        sender_id,
+        sender:profiles!friend_requests_sender_id_fkey(username, avatar_url)
+      `)
+      .eq('receiver_id', user.id)
+      .eq('status', 'pending');
+
+    if (!error && data) {
+      setFriendRequests(data as any);
+    }
+  };
+
+  const loadMessages = async () => {
+    if (!user) return;
+
+    const { data, error } = await supabase
+      .from('direct_messages')
+      .select(`
+        id,
+        sender_id,
+        receiver_id,
+        message,
+        created_at,
+        read,
+        sender:profiles!direct_messages_sender_id_fkey(username, avatar_url)
+      `)
+      .or(`receiver_id.eq.${user.id},sender_id.eq.${user.id}`)
+      .order('created_at', { ascending: false })
+      .limit(20);
+
+    if (!error && data) {
+      setMessages(data as any);
+      const unread = data.filter(m => m.receiver_id === user.id && !m.read).length;
+      onUnreadUpdate(unread);
+    }
+  };
+
+  const handleAcceptRequest = async (requestId: string, senderId: string) => {
+    if (!user) return;
+
+    const { error: updateError } = await supabase
+      .from('friend_requests')
+      .update({ status: 'accepted' })
+      .eq('id', requestId);
+
+    if (updateError) {
+      toast.error("Failed to accept request");
+      return;
+    }
+
+    const { error: insertError } = await supabase
+      .from('friendships')
+      .insert({
+        user1_id: user.id,
+        user2_id: senderId,
+      });
+
+    if (!insertError) {
+      toast.success("Friend request accepted!");
+      loadFriendRequests();
+    }
+  };
+
+  const handleRejectRequest = async (requestId: string) => {
+    const { error } = await supabase
+      .from('friend_requests')
+      .delete()
+      .eq('id', requestId);
+
+    if (!error) {
+      toast.success("Friend request rejected");
+      loadFriendRequests();
+    }
+  };
+
+  const groupMessagesByUser = () => {
+    if (!user) return [];
+    
+    const grouped = new Map();
+    messages.forEach(msg => {
+      const otherUserId = msg.sender_id === user.id ? msg.receiver_id : msg.sender_id;
+      if (!grouped.has(otherUserId)) {
+        grouped.set(otherUserId, {
+          userId: otherUserId,
+          username: msg.sender.username,
+          avatar: msg.sender.avatar_url,
+          lastMessage: msg.message,
+          time: new Date(msg.created_at),
+          unread: msg.receiver_id === user.id && !msg.read ? 1 : 0,
+        });
+      }
+    });
+    
+    return Array.from(grouped.values());
+  };
 
   if (!open) return null;
 
@@ -79,13 +222,13 @@ export const MessagingPanel = ({ open, onClose }: MessagingPanelProps) => {
           <TabsContent value="chats" className="flex-1 m-0">
             <ScrollArea className="h-full">
               <div className="p-4 space-y-2">
-                {chats.map((chat) => (
+                {groupMessagesByUser().map((chat) => (
                   <div
-                    key={chat.id}
+                    key={chat.userId}
                     className="flex items-center gap-3 p-3 rounded-lg bg-card-dark/50 hover:bg-card-dark border border-transparent hover:border-border transition-all cursor-pointer"
                   >
                     <Avatar className="h-10 w-10 border-2 border-primary/30">
-                      <AvatarImage src={chat.avatar} alt={chat.username} />
+                      <AvatarImage src={chat.avatar || undefined} alt={chat.username} />
                       <AvatarFallback className="bg-primary/10 text-primary">
                         {chat.username[0]}
                       </AvatarFallback>
@@ -96,7 +239,7 @@ export const MessagingPanel = ({ open, onClose }: MessagingPanelProps) => {
                           {chat.username}
                         </p>
                         <span className="text-xs text-muted-foreground">
-                          {chat.time}
+                          {new Date(chat.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                         </span>
                       </div>
                       <p className="text-xs text-muted-foreground truncate">
@@ -112,6 +255,11 @@ export const MessagingPanel = ({ open, onClose }: MessagingPanelProps) => {
                     )}
                   </div>
                 ))}
+                {groupMessagesByUser().length === 0 && (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <p>No messages yet</p>
+                  </div>
+                )}
               </div>
             </ScrollArea>
           </TabsContent>
@@ -126,14 +274,14 @@ export const MessagingPanel = ({ open, onClose }: MessagingPanelProps) => {
                     className="flex items-center gap-3 p-3 rounded-lg bg-card-dark/50 border border-border"
                   >
                     <Avatar className="h-10 w-10 border-2 border-primary/30">
-                      <AvatarImage src={request.avatar} alt={request.username} />
+                      <AvatarImage src={request.sender.avatar_url || undefined} alt={request.sender.username} />
                       <AvatarFallback className="bg-primary/10 text-primary">
-                        {request.username[0]}
+                        {request.sender.username[0]}
                       </AvatarFallback>
                     </Avatar>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-semibold text-foreground truncate">
-                        {request.username}
+                        {request.sender.username}
                       </p>
                       <p className="text-xs text-muted-foreground">
                         Wants to be friends
@@ -143,6 +291,7 @@ export const MessagingPanel = ({ open, onClose }: MessagingPanelProps) => {
                       <Button
                         size="icon"
                         className="h-8 w-8 bg-primary hover:bg-primary/90"
+                        onClick={() => handleAcceptRequest(request.id, request.sender_id)}
                       >
                         <Check className="h-4 w-4" />
                       </Button>
@@ -150,12 +299,18 @@ export const MessagingPanel = ({ open, onClose }: MessagingPanelProps) => {
                         size="icon"
                         variant="outline"
                         className="h-8 w-8 border-border hover:border-destructive hover:text-destructive"
+                        onClick={() => handleRejectRequest(request.id)}
                       >
                         <XIcon className="h-4 w-4" />
                       </Button>
                     </div>
                   </div>
                 ))}
+                {friendRequests.length === 0 && (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <p>No pending requests</p>
+                  </div>
+                )}
               </div>
             </ScrollArea>
           </TabsContent>

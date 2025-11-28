@@ -14,6 +14,9 @@ interface Player {
   games_won: number;
   class: string;
   games_played: number;
+  xp: number;
+  level: number;
+  avatar_url: string | null;
 }
 
 const Leaderboard = () => {
@@ -31,12 +34,28 @@ const Leaderboard = () => {
     const { data, error } = await supabase
       .from("profiles")
       .select("*")
-      .order("rating", { ascending: false })
+      .order("xp", { ascending: false })
       .limit(50);
 
     if (!error && data) {
       setPlayers(data);
     }
+
+    // Subscribe to real-time updates
+    const channel = supabase
+      .channel('leaderboard-updates')
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'profiles'
+      }, () => {
+        fetchLeaderboard();
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   };
 
   const handleChallenge = async (player: Player) => {
@@ -86,7 +105,8 @@ const Leaderboard = () => {
 
   const stats = profile ? [
     { label: "Your Rank", value: `#${players.findIndex(p => p.id === profile.id) + 1 || "N/A"}`, icon: TrendingUp },
-    { label: "Your Rating", value: profile.rating.toString(), icon: Trophy },
+    { label: "Your XP", value: profile.xp.toString(), icon: Trophy },
+    { label: "Your Level", value: `Level ${profile.level}`, icon: Crown },
     { label: "Total Wins", value: profile.games_won.toString(), icon: Medal },
   ] : [];
 
@@ -107,7 +127,7 @@ const Leaderboard = () => {
         {profile && stats.length > 0 && (
           <div className="bg-card border border-border rounded-lg p-6 mb-8">
             <h2 className="text-xl font-bold font-rajdhani mb-4">YOUR STATS</h2>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               {stats.map((stat) => (
                 <div key={stat.label} className="bg-secondary border border-border rounded-lg p-4 flex items-center gap-4">
                   <stat.icon className="h-8 w-8 text-primary" />
@@ -147,9 +167,10 @@ const Leaderboard = () => {
         <div className="bg-card border border-border rounded-lg overflow-hidden">
           <div className="bg-secondary border-b border-border px-6 py-4 grid grid-cols-12 gap-4 font-bold text-sm">
             <div className="col-span-1">RANK</div>
-            <div className="col-span-4">PLAYER</div>
-            <div className="col-span-2">RATING</div>
-            <div className="col-span-2">WINS</div>
+            <div className="col-span-3">PLAYER</div>
+            <div className="col-span-2">XP</div>
+            <div className="col-span-1">LEVEL</div>
+            <div className="col-span-2">WIN RATE</div>
             <div className="col-span-1">CLASS</div>
             <div className="col-span-2">ACTION</div>
           </div>
@@ -158,6 +179,9 @@ const Leaderboard = () => {
               {players.map((player, index) => {
                 const rankInfo = getPlayerIcon(index + 1);
                 const IconComponent = rankInfo.icon;
+                const winRate = player.games_played > 0 
+                  ? Math.round((player.games_won / player.games_played) * 100) 
+                  : 0;
                 return (
                   <div 
                     key={player.id}
@@ -167,7 +191,7 @@ const Leaderboard = () => {
                       <span className="text-lg font-bold font-rajdhani">{index + 1}</span>
                     </div>
                     
-                    <div className="col-span-4 flex items-center gap-3">
+                    <div className="col-span-3 flex items-center gap-3">
                       <IconComponent className={`h-6 w-6 ${rankInfo.color}`} />
                       <div>
                         <button
@@ -185,11 +209,15 @@ const Leaderboard = () => {
                     </div>
                     
                     <div className="col-span-2">
-                      <span className="font-bold text-primary">{player.rating}</span>
+                      <span className="font-bold text-primary">{player.xp} XP</span>
+                    </div>
+                    
+                    <div className="col-span-1">
+                      <span className="text-muted-foreground font-semibold">{player.level}</span>
                     </div>
                     
                     <div className="col-span-2">
-                      <span className="text-muted-foreground">{player.games_won}</span>
+                      <span className="text-muted-foreground">{winRate}%</span>
                     </div>
                     
                     <div className="col-span-1">

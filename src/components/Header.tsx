@@ -1,4 +1,4 @@
-import { Bell, User, LogOut, Settings, Trophy, Package, Menu, Trash2, MessageCircle } from "lucide-react";
+import { Bell, User, LogOut, Settings, Trophy, Package, Menu, Trash2, MessageCircle, Users } from "lucide-react";
 import { useSidebar } from "@/components/ui/sidebar";
 import { useEffect } from "react";
 import { Button } from "@/components/ui/button";
@@ -33,6 +33,7 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { DeleteAccountDialog } from "@/components/DeleteAccountDialog";
 import { MessagingPanel } from "@/components/MessagingPanel";
 import { PlayerSearchDropdown } from "@/components/PlayerSearchDropdown";
+import { NotificationBadge } from "@/components/NotificationBadge";
 import { supabase } from "@/integrations/supabase/client";
 
 export const Header = () => {
@@ -149,33 +150,26 @@ export const Header = () => {
               {user ? (
                 <>
               {/* Notifications */}
-              <Button
-                variant="ghost"
-                size="icon"
-                className="relative h-10 w-10 text-muted-foreground hover:text-foreground hover:bg-card-dark transition-colors"
-                onClick={() => {
-                  setNotificationOpen(true);
-                  setUnreadNotifications(0);
-                }}
-              >
-                <Bell className="h-5 w-5" />
-                {unreadNotifications > 0 && (
-                  <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-primary rounded-full" />
-                )}
-              </Button>
+              <NotificationBadge onClick={() => setNotificationOpen(true)}>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="relative h-10 w-10 text-muted-foreground hover:text-foreground hover:bg-card-dark transition-colors"
+                >
+                  <Bell className="h-5 w-5" />
+                </Button>
+              </NotificationBadge>
 
               {/* Messages */}
-              <Button
-                variant="ghost"
-                size="icon"
-                className="relative h-10 w-10 text-muted-foreground hover:text-foreground hover:bg-card-dark transition-colors"
-                onClick={handleOpenSocial}
-              >
-                <MessageCircle className="h-5 w-5" />
-                {unreadMessages > 0 && (
-                  <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-primary rounded-full" />
-                )}
-              </Button>
+              <NotificationBadge onClick={handleOpenSocial}>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="relative h-10 w-10 text-muted-foreground hover:text-foreground hover:bg-card-dark transition-colors"
+                >
+                  <MessageCircle className="h-5 w-5" />
+                </Button>
+              </NotificationBadge>
 
                   {/* User Profile Dropdown */}
                   <DropdownMenu>

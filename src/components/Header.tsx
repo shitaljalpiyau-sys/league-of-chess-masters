@@ -1,4 +1,5 @@
 import { Bell, User, LogOut, Settings, Trophy, Package, Menu, Trash2, MessageCircle } from "lucide-react";
+import { useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { Switch } from "@/components/ui/switch";
@@ -28,7 +29,8 @@ import { AuthModal } from "@/components/AuthModal";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { DeleteAccountDialog } from "@/components/DeleteAccountDialog";
 import { MessagingPanel } from "@/components/MessagingPanel";
-import { Input } from "@/components/ui/input";
+import { PlayerSearchDropdown } from "@/components/PlayerSearchDropdown";
+import { supabase } from "@/integrations/supabase/client";
 
 export const Header = () => {
   const [practiceMode, setPracticeMode] = useState(false);
@@ -39,14 +41,50 @@ export const Header = () => {
   const [authMode, setAuthMode] = useState<"signin" | "signup">("signin");
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [searchQuery, setSearchQuery] = useState("");
   const [selectedAvatar, setSelectedAvatar] = useState(
     "https://api.dicebear.com/7.x/avataaars/svg?seed=Felix"
   );
   const { user, profile, signOut } = useAuth();
   const isMobile = useIsMobile();
 
-  const unreadCount = 2;
+  const [unreadNotifications, setUnreadNotifications] = useState(0);
+  const [unreadMessages, setUnreadMessages] = useState(0);
+
+  // Real-time notification subscriptions
+  useEffect(() => {
+    if (!user) return;
+
+    // Subscribe to challenges
+    const challengesChannel = supabase
+      .channel('challenges-notifications')
+      .on('postgres_changes', {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'challenges',
+        filter: `challenged_id=eq.${user.id}`,
+      }, () => {
+        setUnreadNotifications(prev => prev + 1);
+      })
+      .subscribe();
+
+    // Subscribe to friend requests
+    const friendRequestsChannel = supabase
+      .channel('friend-requests-notifications')
+      .on('postgres_changes', {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'friend_requests',
+        filter: `receiver_id=eq.${user.id}`,
+      }, () => {
+        setUnreadNotifications(prev => prev + 1);
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(challengesChannel);
+      supabase.removeChannel(friendRequestsChannel);
+    };
+  }, [user]);
 
   const handleOpenAuth = (mode: "signin" | "signup") => {
     setAuthMode(mode);
@@ -80,62 +118,54 @@ export const Header = () => {
               </Link>
             </div>
 
-            {/* CENTER - XP BOOST & WALLET */}
+            {/* CENTER - Class Badge */}
             {user && (
-              <div className="hidden lg:flex items-center gap-3 absolute left-1/2 -translate-x-1/2">
-                <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-card-dark border border-border">
-                  <span className="text-xs font-medium text-muted-foreground uppercase">XP BOOST</span>
-                  <span className="text-sm font-bold text-primary">×{(profile as any)?.level || 1}</span>
-                </div>
-                <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-card-dark border border-border">
-                  <span className="text-xs font-medium text-primary uppercase">G3 WALLET</span>
-                  <span className="text-sm font-bold text-foreground">{profile?.points || 0}</span>
-                </div>
-              </div>
-            )}
-
-            {/* CENTER-RIGHT - Search Bar (only when logged in) */}
-            {user && (
-              <div className="hidden md:flex flex-1 max-w-md mx-4">
-                <div className="relative w-full">
-                  <Input
-                    type="text"
-                    placeholder="Search players..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="w-full h-10 pl-4 pr-4 bg-card-dark/50 border border-border focus:border-primary/50 focus:bg-card-dark text-foreground placeholder:text-muted-foreground rounded-lg transition-all"
-                  />
+              <div className="hidden lg:flex items-center absolute left-1/2 -translate-x-1/2">
+                <div className="flex items-center gap-2 px-4 py-1.5 rounded-lg bg-card-dark border border-primary/30">
+                  <Trophy className="h-4 w-4 text-primary" />
+                  <span className="text-sm font-bold text-foreground">Class {profile?.class || 'D'}</span>
                 </div>
               </div>
             )}
 
             {/* RIGHT SIDE */}
             <div className="flex items-center gap-2 flex-shrink-0">
+              {/* Search Bar */}
+              {user && (
+                <div className="hidden md:block">
+                  <PlayerSearchDropdown />
+                </div>
+              )}
               {user ? (
                 <>
-                  {/* Notifications */}
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="relative h-10 w-10 text-muted-foreground hover:text-foreground hover:bg-card-dark transition-colors"
-                    onClick={() => setNotificationOpen(true)}
-                  >
-                    <Bell className="h-5 w-5" />
-                    {unreadCount > 0 && (
-                      <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-primary rounded-full" />
-                    )}
-                  </Button>
+              {/* Notifications */}
+              <Button
+                variant="ghost"
+                size="icon"
+                className="relative h-10 w-10 text-muted-foreground hover:text-foreground hover:bg-card-dark transition-colors"
+                onClick={() => {
+                  setNotificationOpen(true);
+                  setUnreadNotifications(0);
+                }}
+              >
+                <Bell className="h-5 w-5" />
+                {unreadNotifications > 0 && (
+                  <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-primary rounded-full" />
+                )}
+              </Button>
 
-                  {/* Messages */}
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="relative h-10 w-10 text-muted-foreground hover:text-foreground hover:bg-card-dark transition-colors"
-                    onClick={() => setMessagingOpen(true)}
-                  >
-                    <MessageCircle className="h-5 w-5" />
-                    <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-primary rounded-full" />
-                  </Button>
+              {/* Messages */}
+              <Button
+                variant="ghost"
+                size="icon"
+                className="relative h-10 w-10 text-muted-foreground hover:text-foreground hover:bg-card-dark transition-colors"
+                onClick={() => setMessagingOpen(true)}
+              >
+                <MessageCircle className="h-5 w-5" />
+                {unreadMessages > 0 && (
+                  <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-primary rounded-full" />
+                )}
+              </Button>
 
                   {/* User Profile Dropdown */}
                   <DropdownMenu>
@@ -416,7 +446,12 @@ export const Header = () => {
       </header>
 
       <NotificationPanel open={notificationOpen} onOpenChange={setNotificationOpen} />
-      <MessagingPanel open={messagingOpen} onClose={() => setMessagingOpen(false)} />
+      <MessagingPanel 
+        open={messagingOpen} 
+        onClose={() => setMessagingOpen(false)}
+        unreadCount={unreadMessages}
+        onUnreadUpdate={setUnreadMessages}
+      />
       <AvatarSelectionModal
         open={avatarModalOpen}
         onOpenChange={setAvatarModalOpen}

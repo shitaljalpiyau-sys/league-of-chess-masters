@@ -122,6 +122,30 @@ export type Database = {
           },
         ]
       }
+      chat_rooms: {
+        Row: {
+          created_at: string
+          id: string
+          updated_at: string
+          user1_id: string
+          user2_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          updated_at?: string
+          user1_id: string
+          user2_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          updated_at?: string
+          user1_id?: string
+          user2_id?: string
+        }
+        Relationships: []
+      }
       chess_themes: {
         Row: {
           asset_url: string | null
@@ -220,6 +244,7 @@ export type Database = {
       }
       direct_messages: {
         Row: {
+          chat_room_id: string | null
           created_at: string | null
           deleted_at: string | null
           deleted_for_receiver: boolean | null
@@ -231,6 +256,7 @@ export type Database = {
           sender_id: string
         }
         Insert: {
+          chat_room_id?: string | null
           created_at?: string | null
           deleted_at?: string | null
           deleted_for_receiver?: boolean | null
@@ -242,6 +268,7 @@ export type Database = {
           sender_id: string
         }
         Update: {
+          chat_room_id?: string | null
           created_at?: string | null
           deleted_at?: string | null
           deleted_for_receiver?: boolean | null
@@ -253,6 +280,13 @@ export type Database = {
           sender_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "direct_messages_chat_room_id_fkey"
+            columns: ["chat_room_id"]
+            isOneToOne: false
+            referencedRelation: "chat_rooms"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "direct_messages_receiver_id_fkey"
             columns: ["receiver_id"]
@@ -526,6 +560,7 @@ export type Database = {
       }
       global_chat_messages: {
         Row: {
+          avatar_url: string | null
           class: string
           created_at: string
           id: string
@@ -533,6 +568,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          avatar_url?: string | null
           class: string
           created_at?: string
           id?: string
@@ -540,6 +576,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          avatar_url?: string | null
           class?: string
           created_at?: string
           id?: string

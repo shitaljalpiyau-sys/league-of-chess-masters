@@ -22,7 +22,7 @@ export const useFriends = () => {
     fetchFriends();
     fetchFriendRequests();
 
-    // Subscribe to friend requests
+    // Subscribe to friend requests - real-time updates
     const channel = supabase
       .channel(`friends_${user.id}`)
       .on(
@@ -43,6 +43,19 @@ export const useFriends = () => {
           event: "*",
           schema: "public",
           table: "friendships",
+          filter: `user1_id=eq.${user.id}`,
+        },
+        () => {
+          fetchFriends();
+        }
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "friendships",
+          filter: `user2_id=eq.${user.id}`,
         },
         () => {
           fetchFriends();

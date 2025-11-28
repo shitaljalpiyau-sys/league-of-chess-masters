@@ -20,6 +20,20 @@ const Friends = () => {
   const handleChallenge = async (friendId: string) => {
     if (!profile) return;
 
+    // Check for existing pending challenge
+    const { data: existingChallenge } = await supabase
+      .from("challenges")
+      .select("id")
+      .eq("challenger_id", profile.id)
+      .eq("challenged_id", friendId)
+      .eq("status", "pending")
+      .single();
+
+    if (existingChallenge) {
+      toast.error("You already have a pending challenge with this player");
+      return;
+    }
+
     const { error } = await supabase.from("challenges").insert({
       challenger_id: profile.id,
       challenged_id: friendId,
@@ -29,7 +43,8 @@ const Friends = () => {
     if (error) {
       toast.error("Failed to send challenge");
     } else {
-      toast.success("Challenge sent!");
+      toast.success("Challenge sent! They'll be notified.");
+      navigate("/challenges");
     }
   };
 

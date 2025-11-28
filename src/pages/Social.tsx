@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { Users, UserPlus, Check, X, MessageCircle, Crown, Send, Circle, Loader2, MoreVertical, Ban } from "lucide-react";
+import { Users, UserPlus, Check, X, MessageCircle, Crown, Send, Circle, Loader2, MoreVertical, Ban, Swords } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -74,9 +74,10 @@ interface ChatRoom {
 
 const Social = () => {
   const { friends, friendRequests, acceptFriendRequest, rejectFriendRequest, removeFriend } = useFriends();
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const navigate = useNavigate();
   
+  const [activeTab, setActiveTab] = useState("messages");
   const [selectedFriend, setSelectedFriend] = useState<string | null>(null);
   const [messageInput, setMessageInput] = useState("");
   const [messages, setMessages] = useState<Message[]>([]);
@@ -441,7 +442,7 @@ const Social = () => {
           <p className="text-muted-foreground">Connect with friends and chat</p>
         </div>
 
-        <Tabs defaultValue="messages" className="space-y-6">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
           <TabsList className="grid w-full grid-cols-3 bg-card-dark">
             <TabsTrigger value="messages">Messages</TabsTrigger>
             <TabsTrigger value="friends">Friends ({friends.length})</TabsTrigger>
@@ -710,18 +711,55 @@ const Social = () => {
                                         </div>
                                       </div>
                                     </div>
-                                    <div className="flex gap-2">
+                                    <div className="grid grid-cols-3 gap-2">
                                       <Button 
                                         size="sm" 
-                                        variant="outline" 
-                                        className="flex-1"
+                                        variant="outline"
                                         onClick={(e) => {
                                           e.stopPropagation();
                                           setSelectedFriend(friend.id);
+                                          setActiveTab("messages");
                                         }}
+                                        title="Send Message"
                                       >
-                                        <MessageCircle className="h-4 w-4 mr-1" />
-                                        Message
+                                        <MessageCircle className="h-4 w-4" />
+                                      </Button>
+                                      <Button 
+                                        size="sm" 
+                                        variant="outline"
+                                        onClick={async (e) => {
+                                          e.stopPropagation();
+                                          if (!profile) return;
+                                          
+                                          const { data: existingChallenge } = await supabase
+                                            .from("challenges")
+                                            .select("id")
+                                            .eq("challenger_id", profile.id)
+                                            .eq("challenged_id", friend.id)
+                                            .eq("status", "pending")
+                                            .single();
+
+                                          if (existingChallenge) {
+                                            toast.error("You already have a pending challenge with this player");
+                                            return;
+                                          }
+
+                                          const { error } = await supabase.from("challenges").insert({
+                                            challenger_id: profile.id,
+                                            challenged_id: friend.id,
+                                            time_control: "10+5",
+                                          });
+
+                                          if (error) {
+                                            toast.error("Failed to send challenge");
+                                          } else {
+                                            toast.success("Challenge sent!");
+                                          }
+                                        }}
+                                        className="hover:bg-primary/10 hover:text-primary"
+                                        title="Challenge to Game"
+                                      >
+                                        <Swords className="h-4 w-4" />
                                       </Button>
                                       <DropdownMenu>
                                         <DropdownMenuTrigger asChild>

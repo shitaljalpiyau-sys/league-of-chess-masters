@@ -1058,12 +1058,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      check_duplicate_challenge: {
-        Args: { p_challenged_id: string; p_challenger_id: string }
-        Returns: boolean
-      }
       expire_old_challenges: { Args: never; Returns: undefined }
-      expire_old_games: { Args: never; Returns: undefined }
       get_user_by_username_or_email: {
         Args: { identifier: string }
         Returns: {

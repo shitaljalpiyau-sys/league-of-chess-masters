@@ -266,19 +266,6 @@ const PublicProfile = () => {
     setSendingChallenge(true);
 
     try {
-      // Check for duplicate pending challenge
-      const { data: duplicateCheck } = await supabase.rpc('check_duplicate_challenge', {
-        p_challenger_id: user.id,
-        p_challenged_id: userId
-      });
-
-      if (duplicateCheck) {
-        toast.error("You already have a pending challenge with this player");
-        setShowChallengeDialog(false);
-        setSendingChallenge(false);
-        return;
-      }
-
       const { error } = await supabase
         .from("challenges")
         .insert({

@@ -35,11 +35,11 @@ const KNIGHT_TABLE = [
   -50,-40,-20,-30,-30,-20,-40,-50
 ];
 
-// Difficulty configurations with optimized parameters
+// Difficulty configurations with optimized parameters (10/20, 15/20, 20/20 strength)
 const DIFFICULTY_CONFIG = {
-  easy: { depth: 2, randomness: 0.4, timeLimit: 1500, minDepth: 3 },
-  moderate: { depth: 3, randomness: 0.15, timeLimit: 2000, minDepth: 4 },
-  hard: { depth: 4, randomness: 0.05, timeLimit: 5000, minDepth: 5 }
+  easy: { depth: 4, randomness: 0.25, timeLimit: 1500, minDepth: 5 },
+  moderate: { depth: 6, randomness: 0.05, timeLimit: 3000, minDepth: 7 },
+  hard: { depth: 8, randomness: 0, timeLimit: 5000, minDepth: 9 }
 };
 
 export const useBotGame = (initialDifficulty: Difficulty = 'moderate') => {

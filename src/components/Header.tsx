@@ -1,4 +1,5 @@
 import { Bell, User, LogOut, Settings, Trophy, Package, Menu, Trash2, MessageCircle } from "lucide-react";
+import { useSidebar } from "@/components/ui/sidebar";
 import { useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { SidebarTrigger } from "@/components/ui/sidebar";
@@ -6,7 +7,7 @@ import { Switch } from "@/components/ui/switch";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { PlayerSearch } from "@/components/PlayerSearch";
 import {
   DropdownMenu,
@@ -46,6 +47,8 @@ export const Header = () => {
   );
   const { user, profile, signOut } = useAuth();
   const isMobile = useIsMobile();
+  const { setOpen: setSidebarOpen } = useSidebar();
+  const navigate = useNavigate();
 
   const [unreadNotifications, setUnreadNotifications] = useState(0);
   const [unreadMessages, setUnreadMessages] = useState(0);
@@ -90,6 +93,11 @@ export const Header = () => {
     setAuthMode(mode);
     setAuthModalOpen(true);
     setMobileMenuOpen(false);
+  };
+
+  const handleOpenSocial = () => {
+    setSidebarOpen(true);
+    navigate("/social");
   };
 
   return (
@@ -159,7 +167,7 @@ export const Header = () => {
                 variant="ghost"
                 size="icon"
                 className="relative h-10 w-10 text-muted-foreground hover:text-foreground hover:bg-card-dark transition-colors"
-                onClick={() => setMessagingOpen(true)}
+                onClick={handleOpenSocial}
               >
                 <MessageCircle className="h-5 w-5" />
                 {unreadMessages > 0 && (

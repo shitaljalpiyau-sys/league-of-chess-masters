@@ -21,10 +21,10 @@ const menuItems = [
   { title: "CHALLENGE ARENA", url: "/arena", icon: Target },
   { title: "LIVE SPECTATE", url: "/spectate", icon: Eye },
   { title: "LEADERBOARD", url: "/leaderboard", icon: Trophy },
+  { title: "SOCIAL", url: "/social", icon: MessageSquare },
   { title: "MARKETPLACE", url: "/marketplace", icon: ShoppingCart },
   { title: "INVENTORY", url: "/inventory", icon: Package },
   { title: "PROFILE", url: "/profile", icon: Users },
-  { title: "FRIENDS", url: "/friends", icon: Users },
   { title: "GLOBAL CHAT", url: "/global-chat", icon: MessageSquare },
   { title: "NOTICE BOARD", url: "/notice-board", icon: FileText },
 ];

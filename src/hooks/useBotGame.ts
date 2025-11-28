@@ -4,241 +4,87 @@ import type { Square, Move } from 'chess.js';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useXPSystem } from '@/hooks/useXPSystem';
+import { stockfishService } from '@/services/stockfishService';
 
 type Difficulty = 'easy' | 'moderate' | 'hard';
-
-// Piece values for evaluation
-const PIECE_VALUES: { [key: string]: number } = {
-  p: 100,   // pawn
-  n: 320,   // knight
-  b: 330,   // bishop
-  r: 500,   // rook
-  q: 900,   // queen
-  k: 20000  // king
-};
-
-// Position bonus tables for piece placement
-const PAWN_TABLE = [
-  0,  0,  0,  0,  0,  0,  0,  0,
-  50, 50, 50, 50, 50, 50, 50, 50,
-  10, 10, 20, 30, 30, 20, 10, 10,
-  5,  5, 10, 25, 25, 10,  5,  5,
-  0,  0,  0, 20, 20,  0,  0,  0,
-  5, -5,-10,  0,  0,-10, -5,  5,
-  5, 10, 10,-20,-20, 10, 10,  5,
-  0,  0,  0,  0,  0,  0,  0,  0
-];
-
-const KNIGHT_TABLE = [
-  -50,-40,-30,-30,-30,-30,-40,-50,
-  -40,-20,  0,  0,  0,  0,-20,-40,
-  -30,  0, 10, 15, 15, 10,  0,-30,
-  -30,  5, 15, 20, 20, 15,  5,-30,
-  -30,  0, 15, 20, 20, 15,  0,-30,
-  -30,  5, 10, 15, 15, 10,  5,-30,
-  -40,-20,  0,  5,  5,  0,-20,-40,
-  -50,-40,-30,-30,-30,-30,-40,-50
-];
 
 export const useBotGame = (difficulty: Difficulty = 'moderate') => {
   const [chess, setChess] = useState(new Chess());
   const [playerColor] = useState<'white' | 'black'>('white');
   const [isThinking, setIsThinking] = useState(false);
+  const [engineReady, setEngineReady] = useState(false);
   const { user, refreshProfile } = useAuth();
   const { awardMatchXP } = useXPSystem();
 
-  // EASY MODE: Random moves with intentional mistakes
-  const getEasyMove = useCallback((game: Chess): Move | null => {
-    const moves = game.moves({ verbose: true });
-    if (moves.length === 0) return null;
-
-    // 30% chance to make a completely random move (mistake)
-    if (Math.random() < 0.3) {
-      return moves[Math.floor(Math.random() * moves.length)];
-    }
-
-    // 70% chance to pick from first few moves (still basic)
-    const randomSubset = moves.slice(0, Math.min(moves.length, 5));
-    return randomSubset[Math.floor(Math.random() * randomSubset.length)];
+  // Initialize Stockfish engine
+  useEffect(() => {
+    stockfishService.init()
+      .then(() => setEngineReady(true))
+      .catch(err => console.error('Failed to initialize Stockfish:', err));
+    
+    return () => {
+      stockfishService.destroy();
+    };
   }, []);
 
-  // MODERATE MODE: Basic evaluation with minimax depth 2
-  const evaluateBoard = useCallback((game: Chess): number => {
-    let totalEval = 0;
-    const board = game.board();
-
-    for (let i = 0; i < 8; i++) {
-      for (let j = 0; j < 8; j++) {
-        const square = board[i][j];
-        if (square) {
-          const piece = square.type;
-          const color = square.color;
-          let value = PIECE_VALUES[piece];
-
-          // Add positional bonus
-          if (piece === 'p') {
-            value += color === 'w' ? PAWN_TABLE[i * 8 + j] : PAWN_TABLE[(7 - i) * 8 + j];
-          } else if (piece === 'n') {
-            value += color === 'w' ? KNIGHT_TABLE[i * 8 + j] : KNIGHT_TABLE[(7 - i) * 8 + j];
-          }
-
-          totalEval += color === 'b' ? value : -value;
-        }
-      }
+  const getBotMove = useCallback(async (game: Chess): Promise<string | null> => {
+    if (!engineReady) {
+      console.warn('Stockfish not ready yet');
+      return null;
     }
-
-    return totalEval;
-  }, []);
-
-  const getModerateMove = useCallback((game: Chess): Move | null => {
-    const moves = game.moves({ verbose: true });
-    if (moves.length === 0) return null;
-
-    let bestMove = moves[0];
-    let bestValue = -Infinity;
-
-    // Depth 2 minimax
-    for (const move of moves) {
-      const testGame = new Chess(game.fen());
-      testGame.move(move);
-
-      let value = -evaluateBoard(testGame);
-
-      // Look ahead one more move
-      const opponentMoves = testGame.moves({ verbose: true });
-      if (opponentMoves.length > 0) {
-        let worstOpponentValue = Infinity;
-        for (const oppMove of opponentMoves) {
-          const testGame2 = new Chess(testGame.fen());
-          testGame2.move(oppMove);
-          const oppValue = -evaluateBoard(testGame2);
-          worstOpponentValue = Math.min(worstOpponentValue, oppValue);
-        }
-        value = worstOpponentValue;
-      }
-
-      if (value > bestValue) {
-        bestValue = value;
-        bestMove = move;
-      }
-    }
-
+    
+    const fen = game.fen();
+    const bestMove = await stockfishService.getBestMove(fen, difficulty);
     return bestMove;
-  }, [evaluateBoard]);
-
-  // HARD MODE: Minimax with alpha-beta pruning depth 4
-  const minimax = useCallback((
-    game: Chess,
-    depth: number,
-    alpha: number,
-    beta: number,
-    isMaximizingPlayer: boolean
-  ): number => {
-    if (depth === 0 || game.isGameOver()) {
-      return evaluateBoard(game);
-    }
-
-    const moves = game.moves({ verbose: true });
-
-    if (isMaximizingPlayer) {
-      let maxEval = -Infinity;
-      for (const move of moves) {
-        const testGame = new Chess(game.fen());
-        testGame.move(move);
-        const evaluation = minimax(testGame, depth - 1, alpha, beta, false);
-        maxEval = Math.max(maxEval, evaluation);
-        alpha = Math.max(alpha, evaluation);
-        if (beta <= alpha) {
-          break; // Beta cutoff
-        }
-      }
-      return maxEval;
-    } else {
-      let minEval = Infinity;
-      for (const move of moves) {
-        const testGame = new Chess(game.fen());
-        testGame.move(move);
-        const evaluation = minimax(testGame, depth - 1, alpha, beta, true);
-        minEval = Math.min(minEval, evaluation);
-        beta = Math.min(beta, evaluation);
-        if (beta <= alpha) {
-          break; // Alpha cutoff
-        }
-      }
-      return minEval;
-    }
-  }, [evaluateBoard]);
-
-  const getHardMove = useCallback((game: Chess): Move | null => {
-    const moves = game.moves({ verbose: true });
-    if (moves.length === 0) return null;
-
-    let bestMove = moves[0];
-    let bestValue = -Infinity;
-
-    // Depth 4 minimax with alpha-beta pruning
-    for (const move of moves) {
-      const testGame = new Chess(game.fen());
-      testGame.move(move);
-      const value = minimax(testGame, 3, -Infinity, Infinity, false);
-
-      if (value > bestValue) {
-        bestValue = value;
-        bestMove = move;
-      }
-    }
-
-    return bestMove;
-  }, [minimax]);
-
-  const getBotMove = useCallback((game: Chess): Move | null => {
-    switch (difficulty) {
-      case 'easy':
-        return getEasyMove(game);
-      case 'moderate':
-        return getModerateMove(game);
-      case 'hard':
-        return getHardMove(game);
-      default:
-        return getEasyMove(game);
-    }
-  }, [difficulty, getEasyMove, getModerateMove, getHardMove]);
+  }, [difficulty, engineReady]);
 
   // FIXED: Bot move function that accepts the current game state
   const makeBotMove = useCallback(async (currentGame: Chess) => {
-    if (currentGame.isGameOver()) return currentGame;
+    if (currentGame.isGameOver() || !engineReady) return currentGame;
 
     setIsThinking(true);
 
-    // Natural thinking delay: 400ms - 800ms
-    await new Promise(resolve => setTimeout(resolve, 400 + Math.random() * 400));
-
-    // Calculate bot move using the CURRENT game state passed in
-    const move = getBotMove(currentGame);
+    // Get bot move from Stockfish (already has timing built-in)
+    const moveString = await getBotMove(currentGame);
     
-    if (move) {
-      // Apply move to the current game state
-      currentGame.move(move);
-      
-      // HIGHLIGHT BOT MOVE - Apply immediately after move
-      requestAnimationFrame(() => {
-        // Remove old highlights
-        document.querySelectorAll('.highlight-from, .highlight-to').forEach(el => {
-          el.classList.remove('highlight-from', 'highlight-to');
+    if (moveString) {
+      try {
+        // Parse UCI move format (e.g., "e2e4" or "e7e8q")
+        const from = moveString.substring(0, 2);
+        const to = moveString.substring(2, 4);
+        const promotion = moveString.length > 4 ? moveString[4] : undefined;
+        
+        // Apply move to the current game state
+        const move = currentGame.move({
+          from,
+          to,
+          promotion
         });
         
-        // Add new highlights
-        const fromSquare = document.querySelector(`[data-square="${move.from}"]`);
-        const toSquare = document.querySelector(`[data-square="${move.to}"]`);
-        
-        if (fromSquare) fromSquare.classList.add('highlight-from');
-        if (toSquare) toSquare.classList.add('highlight-to');
-      });
+        if (move) {
+          // HIGHLIGHT BOT MOVE - Apply immediately after move
+          requestAnimationFrame(() => {
+            // Remove old highlights
+            document.querySelectorAll('.highlight-from, .highlight-to').forEach(el => {
+              el.classList.remove('highlight-from', 'highlight-to');
+            });
+            
+            // Add new highlights
+            const fromSquare = document.querySelector(`[data-square="${from}"]`);
+            const toSquare = document.querySelector(`[data-square="${to}"]`);
+            
+            if (fromSquare) fromSquare.classList.add('highlight-from');
+            if (toSquare) toSquare.classList.add('highlight-to');
+          });
+        }
+      } catch (error) {
+        console.error('Bot move error:', error);
+      }
     }
 
     setIsThinking(false);
     return currentGame;
-  }, [getBotMove]);
+  }, [getBotMove, engineReady]);
 
   // FIXED: Player move function with correct state flow
   const makePlayerMove = useCallback(async (from: Square, to: Square, promotion?: string): Promise<boolean> => {
@@ -391,11 +237,12 @@ export const useBotGame = (difficulty: Difficulty = 'moderate') => {
   return {
     chess,
     playerColor,
-    isPlayerTurn: chess.turn() === playerColor[0] && !isThinking,
+    isPlayerTurn: chess.turn() === playerColor[0] && !isThinking && engineReady,
     makeMove: makePlayerMove,
     resetGame,
-    isThinking,
+    isThinking: isThinking || !engineReady,
     gameStatus: getGameStatus(),
-    gameOver: chess.isGameOver()
+    gameOver: chess.isGameOver(),
+    engineReady
   };
 };

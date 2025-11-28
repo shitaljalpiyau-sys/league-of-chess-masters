@@ -180,7 +180,7 @@ export const useMultiplayerGame = (gameId: string | null) => {
       result = 'loss';
     }
 
-    // Update stats
+    // Update game stats (games_played, games_won)
     try {
       const { data: currentProfile } = await supabase
         .from('profiles')
@@ -205,7 +205,7 @@ export const useMultiplayerGame = (gameId: string | null) => {
       
       await refreshProfile();
       
-      // Award XP
+      // Award XP (handles level ups automatically)
       setTimeout(() => {
         awardMatchXP(result, {
           fastCheckmate: result === 'win' && isFastCheckmate,
@@ -434,10 +434,14 @@ export const useMultiplayerGame = (gameId: string | null) => {
   };
 
   const resign = async () => {
-    if (!game) return;
+    if (!game || !user?.id || gameEndedRef.current) return;
+
+    // Mark game as ended immediately
+    gameEndedRef.current = true;
 
     const result = playerColor === 'white' ? 'black_wins' : 'white_wins';
     
+    // Update game status
     const { error } = await supabase
       .from('games')
       .update({
@@ -448,10 +452,40 @@ export const useMultiplayerGame = (gameId: string | null) => {
 
     if (error) {
       toast.error('Failed to resign');
+      gameEndedRef.current = false;
       return;
     }
 
-    toast.success('You resigned the game');
+    // Update own stats (resigner = loser)
+    const { data: currentProfile } = await supabase
+      .from('profiles')
+      .select('games_played, xp')
+      .eq('id', user.id)
+      .single();
+
+    if (currentProfile) {
+      await supabase
+        .from('profiles')
+        .update({
+          games_played: currentProfile.games_played + 1,
+        })
+        .eq('id', user.id);
+      
+      await refreshProfile();
+      
+      // Award loss XP (will be -18, capped at 0)
+      setTimeout(() => {
+        awardMatchXP('loss', {});
+      }, 300);
+    }
+
+    // Unsubscribe from channel
+    if (channelRef.current) {
+      await supabase.removeChannel(channelRef.current);
+      channelRef.current = null;
+    }
+
+    toast.success('You resigned');
   };
 
   return {

@@ -123,16 +123,16 @@ export const useThemeStore = () => {
       return false;
     }
 
-    if (profile.points < price) {
-      toast.error('Not enough points!');
+    if (profile.xp < price) {
+      toast.error('Not enough XP!');
       return false;
     }
 
     try {
-      // Deduct points
+      // Deduct XP
       const { error: updateError } = await supabase
         .from('profiles')
-        .update({ points: profile.points - price })
+        .update({ xp: profile.xp - price })
         .eq('id', user.id);
 
       if (updateError) throw updateError;

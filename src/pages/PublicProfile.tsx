@@ -275,6 +275,23 @@ const PublicProfile = () => {
     ? Math.round((profile.games_won / profile.games_played) * 100) 
     : 0;
   const tier = getTierForLevel(profile.level);
+  const [leaderboardRank, setLeaderboardRank] = useState<number>(0);
+
+  // Fetch leaderboard rank
+  useEffect(() => {
+    if (!profile) return;
+    
+    const fetchRank = async () => {
+      const { count } = await supabase
+        .from("profiles")
+        .select("*", { count: "exact", head: true })
+        .gt("rating", profile.rating);
+      
+      setLeaderboardRank((count || 0) + 1);
+    };
+    
+    fetchRank();
+  }, [profile?.rating]);
 
   const isOwnProfile = user?.id === userId;
   const canSpectate = activeMatchId;
@@ -306,7 +323,7 @@ const PublicProfile = () => {
                   )}
                 </div>
                 <p className="text-muted-foreground mb-4">
-                  XP: {profile.xp} • Rating: {profile.rating} • Points: {profile.points}
+                  Points: {profile.points}
                 </p>
                 
                 {!isOwnProfile && user && (
@@ -424,8 +441,8 @@ const PublicProfile = () => {
               </div>
               <div>
                 <Crown className="h-5 w-5 text-primary mb-2" />
-                <div className="text-2xl font-bold font-rajdhani">{profile.rating}</div>
-                <div className="text-xs text-muted-foreground">Current Rating</div>
+                <div className="text-2xl font-bold font-rajdhani">#{leaderboardRank}</div>
+                <div className="text-xs text-muted-foreground">Leaderboard Rank</div>
               </div>
             </div>
           </CardContent>

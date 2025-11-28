@@ -66,7 +66,7 @@ export default function ThemeStore() {
 
           <div className="flex items-center gap-3">
             <Badge className="text-lg px-4 py-2 bg-primary/20 text-primary border-primary/30">
-              {profile?.points || 0} points
+              {profile?.xp || 0} XP
             </Badge>
             {preferences && (
               <Button
@@ -93,8 +93,8 @@ export default function ThemeStore() {
               </h3>
               <p className="text-muted-foreground text-sm">
                 Purchase and apply custom themes to personalize your chess board and pieces. 
-                2D themes cost 100 points, while premium 3D themes cost 1,000 points. 
-                Themes apply globally across all game modes!
+                Board skins cost XP and apply globally across all game modes! 
+                Owned skins are stored in your inventory forever.
               </p>
             </div>
           </div>

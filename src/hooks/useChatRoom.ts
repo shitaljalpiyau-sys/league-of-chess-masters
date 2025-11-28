@@ -35,33 +35,37 @@ export const useChatRoom = (friendId: string | null) => {
       // Ensure user1_id < user2_id for consistency
       const [user1, user2] = [user.id, friendId].sort();
 
-      // Try to find existing chat room
-      let { data: existingRoom } = await supabase
-        .from("chat_rooms")
-        .select("id")
-        .eq("user1_id", user1)
-        .eq("user2_id", user2)
-        .single();
-
-      if (!existingRoom) {
-        // Create new chat room
-        const { data: newRoom, error } = await supabase
+      try {
+        // Try to find existing chat room
+        let { data: existingRoom, error: selectError } = await supabase
           .from("chat_rooms")
-          .insert({ user1_id: user1, user2_id: user2 })
-          .select()
-          .single();
+          .select("id")
+          .eq("user1_id", user1)
+          .eq("user2_id", user2)
+          .maybeSingle();
 
-        if (!error && newRoom) {
-          existingRoom = newRoom;
+        if (!existingRoom && !selectError) {
+          // Create new chat room
+          const { data: newRoom, error: insertError } = await supabase
+            .from("chat_rooms")
+            .insert({ user1_id: user1, user2_id: user2 })
+            .select()
+            .single();
+
+          if (!insertError && newRoom) {
+            existingRoom = newRoom;
+          }
         }
-      }
 
-      if (existingRoom) {
-        setChatRoomId(existingRoom.id);
-        loadMessages(existingRoom.id);
+        if (existingRoom) {
+          setChatRoomId(existingRoom.id);
+          await loadMessages(existingRoom.id);
+        }
+      } catch (error) {
+        console.error("Error initializing chat room:", error);
+      } finally {
+        setLoading(false);
       }
-      
-      setLoading(false);
     };
 
     initChatRoom();

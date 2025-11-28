@@ -71,11 +71,11 @@ export const GameResultBanner = ({ result, playerColor, onRematch }: GameResultB
       
       <div className="flex gap-3 mt-4">
         <Button 
-          onClick={() => navigate('/challenge-arena')}
+          onClick={() => navigate('/')}
           variant="outline"
           className="flex-1"
         >
-          View Games
+          Return Home
         </Button>
         {onRematch && (
           <Button 

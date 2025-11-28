@@ -123,6 +123,21 @@ const Challenges = () => {
       return;
     }
 
+    // Check for duplicate pending challenge
+    const { data: duplicateCheck } = await supabase.rpc('check_duplicate_challenge', {
+      p_challenger_id: profile!.id,
+      p_challenged_id: player.id
+    });
+
+    if (duplicateCheck) {
+      toast({
+        title: "Challenge already sent",
+        description: "You already have a pending challenge with this player",
+        variant: "destructive",
+      });
+      return;
+    }
+
     const { error } = await supabase.from("challenges").insert({
       challenger_id: profile!.id,
       challenged_id: player.id,

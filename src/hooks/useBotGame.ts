@@ -37,9 +37,9 @@ const KNIGHT_TABLE = [
 
 // Difficulty configurations with optimized parameters
 const DIFFICULTY_CONFIG = {
-  easy: { depth: 2, randomness: 0.4, timeLimit: 150 },
-  moderate: { depth: 3, randomness: 0.15, timeLimit: 400 },
-  hard: { depth: 4, randomness: 0.05, timeLimit: 800 }
+  easy: { depth: 2, randomness: 0.4, timeLimit: 600, minDepth: 2 },
+  moderate: { depth: 3, randomness: 0.15, timeLimit: 1200, minDepth: 3 },
+  hard: { depth: 4, randomness: 0.05, timeLimit: 2000, minDepth: 4 }
 };
 
 export const useBotGame = (difficulty: Difficulty = 'moderate') => {
@@ -134,17 +134,29 @@ export const useBotGame = (difficulty: Difficulty = 'moderate') => {
     }
   }, [evaluateBoard]);
 
-  // Get best move with optimized search
-  const getBotMove = useCallback(async (game: Chess): Promise<Move | null> => {
+  // Get best move with optimized search and retry logic
+  const getBotMove = useCallback(async (game: Chess, retryAttempt: number = 0): Promise<Move | null> => {
     const config = DIFFICULTY_CONFIG[difficulty];
     const moves = game.moves({ verbose: true });
-    if (moves.length === 0) return null;
+    
+    // Verify game is not over using Chess.js logic
+    if (moves.length === 0) {
+      // Only return null if truly no legal moves
+      if (game.isCheckmate() || game.isStalemate() || game.isDraw()) {
+        return null;
+      }
+      return null;
+    }
 
     // Apply randomness for lower difficulties
-    if (Math.random() < config.randomness) {
+    if (Math.random() < config.randomness && retryAttempt === 0) {
       return moves[Math.floor(Math.random() * Math.min(moves.length, 5))];
     }
 
+    // Increase time limit on retry
+    const timeLimit = retryAttempt > 0 ? config.timeLimit * 2 : config.timeLimit;
+    const searchDepth = retryAttempt > 0 ? Math.max(config.depth, config.minDepth) : config.depth;
+    
     const startTime = Date.now();
     let bestMove = moves[0];
     let bestValue = -Infinity;
@@ -158,11 +170,11 @@ export const useBotGame = (difficulty: Difficulty = 'moderate') => {
 
     for (const move of moves) {
       // Time limit check
-      if (Date.now() - startTime > config.timeLimit) break;
+      if (Date.now() - startTime > timeLimit) break;
 
       const testGame = new Chess(game.fen());
       testGame.move(move);
-      const value = minimax(testGame, config.depth - 1, -Infinity, Infinity, false, startTime, config.timeLimit);
+      const value = minimax(testGame, searchDepth - 1, -Infinity, Infinity, false, startTime, timeLimit);
 
       if (value > bestValue) {
         bestValue = value;
@@ -170,34 +182,47 @@ export const useBotGame = (difficulty: Difficulty = 'moderate') => {
       }
     }
 
+    // Safety fallback: if no valid move found and haven't retried, retry with more time
+    if (!bestMove && retryAttempt === 0) {
+      return getBotMove(game, 1);
+    }
+
     return bestMove;
   }, [difficulty, minimax]);
 
   // Bot move execution
   const makeBotMove = useCallback(async (currentGame: Chess) => {
+    // Use Chess.js to verify game status
     if (currentGame.isGameOver()) return currentGame;
 
     setIsThinking(true);
 
-    // Get bot move
+    // Get bot move with retry logic
     const move = await getBotMove(currentGame);
     
     if (move) {
-      // Apply move
-      currentGame.move(move);
-      
-      // Highlight bot move
-      requestAnimationFrame(() => {
-        document.querySelectorAll('.highlight-from, .highlight-to').forEach(el => {
-          el.classList.remove('highlight-from', 'highlight-to');
+      try {
+        // Apply move
+        currentGame.move(move);
+        
+        // Highlight bot move
+        requestAnimationFrame(() => {
+          document.querySelectorAll('.highlight-from, .highlight-to').forEach(el => {
+            el.classList.remove('highlight-from', 'highlight-to');
+          });
+          
+          const fromSquare = document.querySelector(`[data-square="${move.from}"]`);
+          const toSquare = document.querySelector(`[data-square="${move.to}"]`);
+          
+          if (fromSquare) fromSquare.classList.add('highlight-from');
+          if (toSquare) toSquare.classList.add('highlight-to');
         });
-        
-        const fromSquare = document.querySelector(`[data-square="${move.from}"]`);
-        const toSquare = document.querySelector(`[data-square="${move.to}"]`);
-        
-        if (fromSquare) fromSquare.classList.add('highlight-from');
-        if (toSquare) toSquare.classList.add('highlight-to');
-      });
+      } catch (error) {
+        console.error('Bot move error:', error);
+      }
+    } else {
+      // If no move found, verify game is actually over
+      console.log('No bot move found. Game over:', currentGame.isGameOver());
     }
 
     setIsThinking(false);
@@ -244,10 +269,20 @@ export const useBotGame = (difficulty: Difficulty = 'moderate') => {
   }, []);
 
   const getGameStatus = useCallback(() => {
-    if (chess.isCheckmate()) return 'checkmate';
+    // Use Chess.js logic only, never rely on engine output
+    const moves = chess.moves();
+    const isInCheck = chess.isCheck();
+    
+    // No legal moves
+    if (moves.length === 0) {
+      if (isInCheck) return 'checkmate';
+      return 'stalemate';
+    }
+    
+    // Other draw conditions
     if (chess.isDraw()) return 'draw';
-    if (chess.isStalemate()) return 'stalemate';
-    if (chess.isCheck()) return 'check';
+    if (isInCheck) return 'check';
+    
     return 'active';
   }, [chess]);
 
@@ -299,12 +334,18 @@ export const useBotGame = (difficulty: Difficulty = 'moderate') => {
         }
       }, 500);
       
+      // Build FEN history from move history using verbose moves
       const fenHistory: string[] = [new Chess().fen()];
       const tempChess = new Chess();
-      const history = chess.history();
-      history.forEach(move => {
-        tempChess.move(move);
-        fenHistory.push(tempChess.fen());
+      const moveHistory = chess.history({ verbose: true });
+      
+      moveHistory.forEach(move => {
+        try {
+          tempChess.move({ from: move.from, to: move.to, promotion: move.promotion });
+          fenHistory.push(tempChess.fen());
+        } catch (error) {
+          console.error('Error building FEN history:', error, move);
+        }
       });
       
       await supabase.from('match_history').insert({

@@ -63,25 +63,32 @@ export const useBotGame = (initialDifficulty: Difficulty = 'moderate') => {
     let initTimeout: NodeJS.Timeout;
     
     try {
-      // Create Stockfish worker
-      const engine = new Worker('/stockfish.worker.js');
+      // Create Stockfish worker with new path
+      const engine = new Worker('/stockfish-worker.js');
       engineRef.current = engine;
 
       // Set up message handler
       engine.onmessage = (event: MessageEvent) => {
         const message = event.data as string;
+        
+        // Handle error messages
+        if (message && typeof message === 'object' && (message as any).error) {
+          console.error('Stockfish error:', (message as any).error);
+          return;
+        }
+        
         console.log('Stockfish:', message);
 
         if (message === 'uciok') {
-          console.log('UCI protocol confirmed, requesting ready status');
+          console.log('✓ UCI protocol confirmed');
           engine.postMessage('isready');
         } else if (message === 'readyok') {
           setEngineReady(true);
-          console.log('✓ Stockfish engine ready and configured');
+          console.log('✓ Stockfish engine ready');
         } else if (message.startsWith('bestmove')) {
           const match = message.match(/bestmove ([a-h][1-8][a-h][1-8][qrbn]?)/);
           if (match && pendingMoveRef.current) {
-            console.log('Bot move received:', match[1]);
+            console.log('✓ Bot move received:', match[1]);
             pendingMoveRef.current(match[1]);
             pendingMoveRef.current = null;
           }
@@ -91,22 +98,26 @@ export const useBotGame = (initialDifficulty: Difficulty = 'moderate') => {
       // Handle worker errors
       engine.onerror = (error) => {
         console.error('Stockfish worker error:', error);
+        // Set ready anyway with fallback
+        setEngineReady(true);
       };
 
-      // Initialize UCI with timeout fallback
-      console.log('Initializing Stockfish engine...');
+      // Initialize UCI protocol
+      console.log('Initializing Stockfish UCI protocol...');
       engine.postMessage('uci');
       
-      // Fallback: Mark engine as ready after 3 seconds if no response
+      // Fallback: Mark engine as ready after 2 seconds if no response
       initTimeout = setTimeout(() => {
         if (!engineReady) {
-          console.warn('Engine did not respond with readyok, forcing ready state');
+          console.warn('Engine timeout, forcing ready state for fallback mode');
           setEngineReady(true);
         }
-      }, 3000);
+      }, 2000);
       
     } catch (error) {
       console.error('Failed to initialize Stockfish worker:', error);
+      // Still set ready to allow fallback to random moves
+      setEngineReady(true);
     }
 
     return () => {
@@ -124,11 +135,15 @@ export const useBotGame = (initialDifficulty: Difficulty = 'moderate') => {
     const config = DIFFICULTY_CONFIG[difficulty];
     const engine = engineRef.current;
 
+    // Reset engine state
     engine.postMessage('ucinewgame');
+    
+    // Configure skill level for difficulty
     engine.postMessage(`setoption name Skill Level value ${config.skillLevel}`);
     engine.postMessage(`setoption name Threads value ${config.threads}`);
     engine.postMessage(`setoption name Move Overhead value ${config.moveOverhead}`);
     
+    // Optional settings
     if (config.contempt !== undefined) {
       engine.postMessage(`setoption name Contempt value ${config.contempt}`);
     }
@@ -137,7 +152,7 @@ export const useBotGame = (initialDifficulty: Difficulty = 'moderate') => {
       engine.postMessage(`setoption name Hash value ${config.hash}`);
     }
 
-    console.log(`Stockfish configured: ${difficulty} - ${config.description}`);
+    console.log(`✓ Configured: ${difficulty.toUpperCase()} (Skill ${config.skillLevel}, Depth ${config.depth})`);
   }, [difficulty, engineReady]);
 
   // Get best move from Stockfish
@@ -154,9 +169,9 @@ export const useBotGame = (initialDifficulty: Difficulty = 'moderate') => {
         return;
       }
 
-      // If engine not ready, use random move
+      // If engine not ready, use random move immediately
       if (!engineReady) {
-        console.warn('Engine not ready, using random move');
+        console.warn('⚠️ Engine not ready, using random move');
         const randomMove = moves[Math.floor(Math.random() * moves.length)];
         resolve(randomMove);
         return;
@@ -165,26 +180,26 @@ export const useBotGame = (initialDifficulty: Difficulty = 'moderate') => {
       const config = DIFFICULTY_CONFIG[difficulty];
       const fen = game.fen();
 
-      // Configure engine for this move
+      // Configure engine before each move
       configureEngine();
 
       // Set up the promise resolver
       pendingMoveRef.current = resolve;
 
-      // Send position and request move
-      console.log(`Requesting move at depth ${config.depth} for position:`, fen);
+      // Send UCI commands in correct order
+      console.log(`🤖 Requesting ${difficulty} move (depth ${config.depth}, skill ${config.skillLevel})`);
       engineRef.current.postMessage(`position fen ${fen}`);
       engineRef.current.postMessage(`go depth ${config.depth}`);
 
-      // Timeout fallback - return random move after 8 seconds
+      // Timeout fallback - return random move after 10 seconds
       setTimeout(() => {
         if (pendingMoveRef.current === resolve) {
           pendingMoveRef.current = null;
           const randomMove = moves[Math.floor(Math.random() * moves.length)];
-          console.warn('Engine timeout, using random move:', randomMove);
+          console.warn('⏱️ Engine timeout, using random move:', randomMove);
           resolve(randomMove);
         }
-      }, 8000);
+      }, 10000);
     });
   }, [difficulty, engineReady, configureEngine]);
 

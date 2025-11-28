@@ -746,6 +746,7 @@ export type Database = {
           id: string
           league: string
           level: number
+          numeric_user_id: number | null
           points: number
           rating: number
           undo_moves: number
@@ -764,6 +765,7 @@ export type Database = {
           id: string
           league?: string
           level?: number
+          numeric_user_id?: number | null
           points?: number
           rating?: number
           undo_moves?: number
@@ -782,6 +784,7 @@ export type Database = {
           id?: string
           league?: string
           level?: number
+          numeric_user_id?: number | null
           points?: number
           rating?: number
           undo_moves?: number
@@ -1019,6 +1022,13 @@ export type Database = {
     }
     Functions: {
       expire_old_challenges: { Args: never; Returns: undefined }
+      get_user_by_username_or_email: {
+        Args: { identifier: string }
+        Returns: {
+          email: string
+          user_id: string
+        }[]
+      }
       is_username_available: {
         Args: { check_username: string }
         Returns: boolean

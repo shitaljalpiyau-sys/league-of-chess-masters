@@ -8,66 +8,66 @@ All colors MUST be HSL.
 
 @layer base {
   :root {
-    /* Premium Refined Theme - Less Bright, More Sophisticated */
-    --background: 220 30% 6%;
-    --foreground: 210 20% 95%;
+    /* GAM3S.GG Inspired Theme - Dark with Neon Green */
+    --background: 220 25% 8%;
+    --foreground: 0 0% 95%;
 
-    --card: 220 25% 10%;
-    --card-foreground: 210 20% 95%;
+    --card: 220 20% 12%;
+    --card-foreground: 0 0% 95%;
 
-    --popover: 220 28% 9%;
-    --popover-foreground: 210 20% 95%;
+    --popover: 220 22% 10%;
+    --popover-foreground: 0 0% 95%;
 
-    --primary: 217 70% 55%;
-    --primary-foreground: 220 30% 6%;
+    --primary: 142 76% 50%;
+    --primary-foreground: 0 0% 10%;
 
-    --secondary: 220 20% 16%;
-    --secondary-foreground: 210 20% 95%;
+    --secondary: 220 15% 18%;
+    --secondary-foreground: 0 0% 95%;
 
-    --muted: 220 18% 20%;
-    --muted-foreground: 210 15% 65%;
+    --muted: 220 12% 22%;
+    --muted-foreground: 0 0% 60%;
 
-    --accent: 215 65% 58%;
-    --accent-foreground: 220 30% 6%;
+    --accent: 142 76% 50%;
+    --accent-foreground: 0 0% 10%;
 
     --destructive: 0 72% 58%;
-    --destructive-foreground: 210 20% 95%;
+    --destructive-foreground: 0 0% 95%;
 
-    --border: 220 20% 18%;
-    --input: 220 25% 12%;
-    --ring: 217 70% 55%;
+    --border: 220 15% 20%;
+    --input: 220 20% 14%;
+    --ring: 142 76% 50%;
 
     --radius: 0.75rem;
 
-    /* Refined accent colors */
-    --soft-blue: 217 70% 55%;
-    --soft-cyan: 195 65% 60%;
-    --soft-purple: 255 60% 65%;
+    /* Neon green accent colors */
+    --neon-green: 142 76% 50%;
+    --neon-green-glow: 142 76% 40%;
+    --neon-green-bright: 142 86% 60%;
     --premium-gold: 45 88% 68%;
     
-    /* Glass effect values - softer */
-    --glass-bg: rgba(255, 255, 255, 0.05);
-    --glass-border: rgba(100, 150, 220, 0.25);
+    /* Glass effect values - GAM3S.GG style */
+    --glass-bg: rgba(20, 24, 32, 0.6);
+    --glass-border: rgba(61, 201, 119, 0.2);
     --glass-blur: 20px;
     
-    /* Card backgrounds - refined dark */
-    --card-dark: 220 30% 8%;
-    --card-darker: 220 35% 6%;
+    /* Card backgrounds - matte dark */
+    --card-dark: 220 22% 10%;
+    --card-darker: 220 25% 8%;
 
     /* Section colors for visual separation */
-    --section-1: 220 28% 12%;
-    --section-2: 218 26% 14%;
-    --section-3: 216 24% 16%;
+    --section-1: 220 20% 12%;
+    --section-2: 220 18% 14%;
+    --section-3: 220 16% 16%;
 
-    /* Sidebar - refined glass */
-    --sidebar-background: rgba(15, 20, 35, 0.90);
-    --sidebar-foreground: 210 20% 95%;
-    --sidebar-border: 220 20% 18%;
-    --sidebar-accent: rgba(100, 150, 220, 0.15);
-    --sidebar-accent-foreground: 217 70% 55%;
-    --sidebar-primary: 217 70% 55%;
-    --sidebar-primary-foreground: 220 30% 6%;
-    --sidebar-ring: 217 70% 55%;
+    /* Sidebar - GAM3S.GG style */
+    --sidebar-background: rgba(16, 20, 28, 0.95);
+    --sidebar-foreground: 0 0% 95%;
+    --sidebar-border: 220 15% 20%;
+    --sidebar-accent: rgba(61, 201, 119, 0.1);
+    --sidebar-accent-foreground: 142 76% 50%;
+    --sidebar-primary: 142 76% 50%;
+    --sidebar-primary-foreground: 0 0% 10%;
+    --sidebar-ring: 142 76% 50%;
 
     /* Enhanced spacing system */
     --spacing-xs: 0.25rem;
@@ -183,9 +183,9 @@ All colors MUST be HSL.
     --spacing-xl: 3rem;
   }
 
-  /* Futuristic background styles */
+  /* GAM3S.GG background styles */
   [data-theme="dark"][data-layout]:not([data-layout="minimal"]) body {
-    background: radial-gradient(ellipse at top, hsl(217, 75%, 6%) 0%, hsl(217, 80%, 3%) 50%, hsl(217, 85%, 2%) 100%);
+    background: linear-gradient(180deg, hsl(220, 25%, 8%) 0%, hsl(220, 28%, 6%) 50%, hsl(220, 30%, 5%) 100%);
     position: relative;
   }
 
@@ -194,8 +194,8 @@ All colors MUST be HSL.
     position: fixed;
     inset: 0;
     background: 
-      radial-gradient(circle at 20% 30%, rgba(0, 229, 255, 0.03) 0%, transparent 50%),
-      radial-gradient(circle at 80% 70%, rgba(59, 130, 246, 0.02) 0%, transparent 50%);
+      radial-gradient(circle at 20% 30%, rgba(61, 201, 119, 0.03) 0%, transparent 50%),
+      radial-gradient(circle at 80% 70%, rgba(61, 201, 119, 0.02) 0%, transparent 50%);
     pointer-events: none;
     z-index: 0;
   }
@@ -264,45 +264,42 @@ All colors MUST be HSL.
     @apply outline-none ring-2 ring-ring ring-offset-2 ring-offset-background;
   }
 
-  /* Holographic glassmorphism effects */
+  /* GAM3S.GG glassmorphism effects */
   .glass-panel {
-    background: rgba(255, 255, 255, 0.08);
+    background: rgba(20, 24, 32, 0.6);
     backdrop-filter: blur(24px);
     -webkit-backdrop-filter: blur(24px);
-    border: 1px solid rgba(0, 229, 255, 0.35);
+    border: 1px solid rgba(61, 201, 119, 0.2);
     box-shadow: 
-      0 8px 32px rgba(0, 0, 0, 0.4),
-      inset 0 1px 0 rgba(255, 255, 255, 0.1),
-      0 0 20px rgba(0, 229, 255, 0.15);
+      0 8px 32px rgba(0, 0, 0, 0.5),
+      inset 0 1px 0 rgba(255, 255, 255, 0.05);
   }
 
   .glass-button {
-    background: rgba(255, 255, 255, 0.08);
+    background: rgba(20, 24, 32, 0.6);
     backdrop-filter: blur(18px);
     -webkit-backdrop-filter: blur(18px);
-    border: 1px solid rgba(0, 229, 255, 0.4);
+    border: 1px solid rgba(61, 201, 119, 0.3);
     box-shadow: 
-      0 4px 16px rgba(0, 0, 0, 0.3),
-      inset 0 1px 0 rgba(255, 255, 255, 0.15),
-      0 0 15px rgba(0, 229, 255, 0.2);
+      0 4px 16px rgba(0, 0, 0, 0.4),
+      inset 0 1px 0 rgba(255, 255, 255, 0.08);
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   }
 
   .glass-button:hover {
-    background: rgba(0, 229, 255, 0.15);
-    border-color: rgba(0, 229, 255, 0.6);
+    background: rgba(61, 201, 119, 0.1);
+    border-color: rgba(61, 201, 119, 0.5);
     box-shadow: 
-      0 8px 24px rgba(0, 0, 0, 0.4),
-      inset 0 1px 0 rgba(255, 255, 255, 0.2),
-      0 0 30px rgba(0, 229, 255, 0.4);
+      0 8px 24px rgba(0, 0, 0, 0.5),
+      inset 0 1px 0 rgba(255, 255, 255, 0.1),
+      0 0 20px rgba(61, 201, 119, 0.3);
     transform: translateY(-2px);
   }
 
   .neon-glow {
     box-shadow: 
-      0 0 10px rgba(0, 229, 255, 0.5),
-      0 0 20px rgba(0, 229, 255, 0.3),
-      0 0 40px rgba(0, 229, 255, 0.1);
+      0 0 10px rgba(61, 201, 119, 0.4),
+      0 0 20px rgba(61, 201, 119, 0.2);
   }
 
   .neon-glow-gold {
@@ -311,19 +308,19 @@ All colors MUST be HSL.
       0 0 20px rgba(248, 215, 116, 0.3);
   }
 
-  /* Premium shadows with holographic glow */
+  /* Premium shadows with neon green glow */
   .shadow-premium {
     box-shadow: 
-      0 4px 20px rgba(0, 0, 0, 0.5), 
-      0 0 40px rgba(0, 229, 255, 0.2),
-      inset 0 1px 0 rgba(255, 255, 255, 0.1);
+      0 4px 20px rgba(0, 0, 0, 0.6), 
+      0 0 30px rgba(61, 201, 119, 0.15),
+      inset 0 1px 0 rgba(255, 255, 255, 0.05);
   }
 
   .shadow-premium-lg {
     box-shadow: 
-      0 10px 40px rgba(0, 0, 0, 0.6), 
-      0 0 60px rgba(0, 229, 255, 0.3),
-      inset 0 1px 0 rgba(255, 255, 255, 0.15);
+      0 10px 40px rgba(0, 0, 0, 0.7), 
+      0 0 50px rgba(61, 201, 119, 0.2),
+      inset 0 1px 0 rgba(255, 255, 255, 0.08);
   }
 }
 

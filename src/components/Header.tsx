@@ -52,217 +52,189 @@ export const Header = () => {
 
   return (
     <>
-      <header className="fixed top-0 left-0 right-0 z-50 h-14 glass-panel scan-line-effect neon-glow" style={{
-        background: 'rgba(10, 16, 32, 0.85)',
+      <header className="fixed top-0 left-0 right-0 z-50 h-16 glass-panel" style={{
+        background: 'rgba(16, 20, 28, 0.95)',
         backdropFilter: 'blur(24px)',
-        borderBottom: '1px solid rgba(0, 229, 255, 0.35)',
-        boxShadow: '0 8px 32px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.1), 0 4px 20px rgba(0, 229, 255, 0.15)'
+        borderBottom: '1px solid rgba(61, 201, 119, 0.15)',
+        boxShadow: '0 4px 20px rgba(0, 0, 0, 0.5)'
       }}>
-        <div className="container mx-auto px-4 sm:px-6 h-full">
-          <div className="flex h-full items-center justify-between gap-2 sm:gap-4">
+        <div className="container mx-auto px-6 h-full max-w-screen-2xl">
+          <div className="flex h-full items-center justify-between gap-4">
             {/* LEFT SIDE - Logo, Site Name, and Toggle */}
-            <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
+            <div className="flex items-center gap-4 flex-shrink-0">
+              {/* Sidebar Toggle */}
+              <SidebarTrigger className="text-muted-foreground hover:text-primary transition-colors" />
+              
               {/* Logo + Site Name */}
-              <Link to="/" className="flex items-center gap-2 group">
-                <div className="w-8 h-8 glass-button rounded-lg flex items-center justify-center group-hover:scale-110 transition-all animate-neon-pulse">
+              <Link to="/" className="flex items-center gap-2.5 group">
+                <div className="w-9 h-9 rounded-lg flex items-center justify-center bg-primary/10 border border-primary/20 group-hover:border-primary/40 transition-all">
                   <Trophy className="w-5 h-5 text-primary" />
                 </div>
-                <h1 className="hidden sm:block text-lg font-bold font-rajdhani text-foreground tracking-wider group-hover:text-primary transition-colors neon-glow">
-                  ELITE LEAGUE
+                <h1 className="hidden sm:block text-xl font-bold tracking-tight text-foreground group-hover:text-primary transition-colors">
+                  CHESS.GG
                 </h1>
               </Link>
-              
-              {/* Sidebar Toggle */}
-              <SidebarTrigger className="text-foreground hover:text-primary transition-colors ml-1" />
-              
-              {/* Practice Mode Switch */}
-              <div className="hidden xl:flex items-center gap-3 ml-2">
-                <span className="text-sm font-medium text-muted-foreground whitespace-nowrap">
-                  Practice Mode
-                </span>
-                <Switch checked={practiceMode} onCheckedChange={setPracticeMode} />
-              </div>
             </div>
 
-            {/* CENTER - CLASS BADGE */}
+            {/* CENTER - XP BOOST & WALLET */}
             {user && (
-              <div className="absolute left-1/2 -translate-x-1/2 hidden md:block">
-                <div className="px-3 sm:px-4 py-1.5 rounded-full border-2 border-primary bg-card-darker shadow-lg">
-                  <span className="text-xs font-bold text-primary tracking-wider whitespace-nowrap">
-                    CLASS {profile?.class || "D"}
-                  </span>
+              <div className="hidden lg:flex items-center gap-3 absolute left-1/2 -translate-x-1/2">
+                <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-card-dark border border-border">
+                  <span className="text-xs font-medium text-muted-foreground uppercase">XP BOOST</span>
+                  <span className="text-sm font-bold text-primary">×{(profile as any)?.level || 1}</span>
+                </div>
+                <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-card-dark border border-border">
+                  <span className="text-xs font-medium text-primary uppercase">G3 WALLET</span>
+                  <span className="text-sm font-bold text-foreground">{profile?.points || 0}</span>
                 </div>
               </div>
             )}
 
             {/* RIGHT SIDE */}
-            <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
+            <div className="flex items-center gap-3 flex-shrink-0">
               {user ? (
                 <>
-                  {/* Search Bar */}
-                  <div className="hidden lg:block w-48 xl:w-64">
-                    <div className="scale-90">
-                      <PlayerSearch 
-                        placeholder="Search players..."
-                        showSpectateButton={true}
-                      />
-                    </div>
-                  </div>
-                  
-                  {/* Points Display */}
-                  <div className="hidden sm:flex items-center gap-2 px-3 py-2 bg-card-dark rounded-lg border border-border hover:border-primary/50 transition-colors">
-                    <div className="w-2 h-2 rounded-full bg-primary animate-pulse flex-shrink-0" />
-                    <span className="text-sm font-bold text-foreground whitespace-nowrap">
-                      {profile?.points || 0}
-                    </span>
-                    <span className="text-xs font-semibold text-primary whitespace-nowrap">$POINT</span>
-                  </div>
-
+                  {/* Search Icon */}
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="relative h-10 w-10 sm:h-11 sm:w-11 hover:bg-card-dark flex-shrink-0"
+                    className="h-10 w-10 text-muted-foreground hover:text-foreground hover:bg-card-dark transition-colors"
+                  >
+                    <Search className="h-5 w-5" />
+                  </Button>
+
+                  {/* Notifications */}
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="relative h-10 w-10 text-muted-foreground hover:text-foreground hover:bg-card-dark transition-colors"
                     onClick={() => setNotificationOpen(true)}
                   >
-                    <Bell className="h-5 w-5 sm:h-6 sm:w-6 text-foreground hover:text-primary transition-colors" />
+                    <Bell className="h-5 w-5" />
                     {unreadCount > 0 && (
-                      <span className="absolute top-1 right-1 sm:top-1.5 sm:right-1.5 w-4 h-4 sm:w-5 sm:h-5 bg-destructive rounded-full flex items-center justify-center text-xs font-bold text-destructive-foreground">
-                        {unreadCount}
-                      </span>
+                      <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-primary rounded-full" />
                     )}
                   </Button>
 
+                  {/* User Profile Dropdown */}
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <Button
                         variant="ghost"
-                        className="h-9 w-9 rounded-full p-0 hover:ring-2 hover:ring-primary transition-all flex-shrink-0"
+                        className="flex items-center gap-2 h-10 px-3 hover:bg-card-dark transition-all rounded-lg"
                       >
-                        <Avatar className="h-9 w-9 border-2 border-border hover:border-primary transition-colors">
-                          <AvatarImage src={selectedAvatar} alt="Profile" />
-                          <AvatarFallback className="bg-card-darker">
-                            <User className="h-4 w-4 text-muted-foreground" />
-                          </AvatarFallback>
-                        </Avatar>
+                        <div className="w-8 h-8 rounded-md bg-gradient-to-br from-primary/20 to-primary/10 border border-primary/30 flex items-center justify-center">
+                          <span className="text-xs font-bold text-primary">B</span>
+                        </div>
+                        <div className="hidden lg:flex flex-col items-start">
+                          <span className="text-xs font-medium text-foreground">{profile?.username || "Player"}</span>
+                          <span className="text-xs text-primary">Level {(profile as any)?.level || 3}</span>
+                        </div>
                       </Button>
                     </DropdownMenuTrigger>
                   <DropdownMenuContent
                     align="end"
-                    className="w-72 bg-card border-border shadow-xl p-2"
+                    className="w-80 bg-card/95 backdrop-blur-xl border-border shadow-2xl p-4"
                   >
-                    <DropdownMenuLabel className="p-3">
-                      <div className="flex items-center gap-3">
-                        <Avatar
-                          className="h-12 w-12 border-2 border-primary cursor-pointer hover:opacity-80 transition-opacity"
-                          onClick={() => setAvatarModalOpen(true)}
-                        >
-                          <AvatarImage src={selectedAvatar} alt="Profile" />
-                          <AvatarFallback>
-                            <User className="h-6 w-6" />
-                          </AvatarFallback>
-                        </Avatar>
-                        <div className="flex-1">
-                          <p className="font-bold text-foreground">
-                            {profile?.username || "Player"}
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            Class {profile?.class || "D"}
-                          </p>
+                    {/* Profile Header */}
+                    <div className="flex items-start gap-3 pb-4 border-b border-border">
+                      <Avatar className="h-16 w-16 border-2 border-primary cursor-pointer" onClick={() => setAvatarModalOpen(true)}>
+                        <AvatarImage src={selectedAvatar} alt="Profile" />
+                        <AvatarFallback className="bg-primary/10">
+                          <User className="h-8 w-8 text-primary" />
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="flex-1">
+                        <p className="text-base font-bold text-foreground mb-1">
+                          {profile?.username || "Player"}
+                        </p>
+                        <div className="inline-block px-2 py-0.5 rounded bg-amber-500/20 border border-amber-500/30">
+                          <span className="text-xs font-medium text-amber-500 uppercase">WOOD</span>
                         </div>
-                      </div>
-                    </DropdownMenuLabel>
-
-                    <DropdownMenuSeparator className="bg-border" />
-
-                    <div className="px-3 py-2 space-y-2">
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm text-muted-foreground">Class Level</span>
-                        <span className="text-sm font-bold text-primary">
-                          Class {profile?.class || "D"}
-                        </span>
-                      </div>
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm text-muted-foreground">Points</span>
-                        <span className="text-sm font-bold text-foreground">
-                          {profile?.points || 0} $POINT
-                        </span>
                       </div>
                     </div>
 
-                    <DropdownMenuSeparator className="bg-border" />
+                    {/* Level Progress */}
+                    <div className="py-4 space-y-3 border-b border-border">
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <p className="text-xs text-muted-foreground mb-1">Current Level</p>
+                          <p className="text-lg font-bold text-foreground">Level {(profile as any)?.level || 3}</p>
+                          <p className="text-xs text-muted-foreground">{(profile as any)?.xp || 31} XP until next level</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-xs text-muted-foreground mb-1">Next Rank</p>
+                          <p className="text-sm font-bold text-foreground">Iron</p>
+                          <p className="text-xs text-muted-foreground">in 6 levels</p>
+                        </div>
+                      </div>
+                      <div className="space-y-1">
+                        <div className="flex justify-between text-xs">
+                          <span className="text-muted-foreground">Level Progress</span>
+                          <span className="text-primary font-medium">{(profile as any)?.xp || 269} XP / 300 XP</span>
+                        </div>
+                        <div className="h-2 bg-card-dark rounded-full overflow-hidden">
+                          <div className="h-full bg-gradient-to-r from-primary to-primary/80 rounded-full" style={{ width: `${(((profile as any)?.xp || 269) / 300) * 100}%` }} />
+                        </div>
+                      </div>
+                    </div>
 
-                    <DropdownMenuItem asChild>
-                      <Link
-                        to="/profile"
-                        className="cursor-pointer flex items-center gap-2 px-3 py-2"
-                      >
-                        <User className="h-4 w-4" />
-                        <span>Profile Settings</span>
-                      </Link>
-                    </DropdownMenuItem>
+                    {/* Menu Items */}
+                    <div className="py-2 space-y-1">
+                      <DropdownMenuItem asChild>
+                        <Link to="/profile" className="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-card-dark cursor-pointer">
+                          <User className="h-4 w-4 text-muted-foreground" />
+                          <span className="text-sm font-medium">Profile</span>
+                        </Link>
+                      </DropdownMenuItem>
 
-                    <DropdownMenuItem asChild>
-                      <Link
-                        to="/inventory"
-                        className="cursor-pointer flex items-center gap-2 px-3 py-2"
-                      >
-                        <Package className="h-4 w-4" />
-                        <span>Inventory</span>
-                      </Link>
-                    </DropdownMenuItem>
+                      <DropdownMenuItem asChild>
+                        <Link to="/inventory" className="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-card-dark cursor-pointer">
+                          <Package className="h-4 w-4 text-muted-foreground" />
+                          <span className="text-sm font-medium">Inventory</span>
+                        </Link>
+                      </DropdownMenuItem>
 
-                    <DropdownMenuItem asChild>
-                      <Link
-                        to="/settings/customization"
-                        className="cursor-pointer flex items-center gap-2 px-3 py-2"
-                      >
-                        <Settings className="h-4 w-4" />
-                        <span>Settings</span>
-                      </Link>
-                    </DropdownMenuItem>
+                      <DropdownMenuItem asChild>
+                        <Link to="/profile" className="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-card-dark cursor-pointer">
+                          <Trophy className="h-4 w-4 text-muted-foreground" />
+                          <span className="text-sm font-medium">Achievements</span>
+                        </Link>
+                      </DropdownMenuItem>
 
-                    <DropdownMenuItem disabled className="px-3 py-2 opacity-50">
-                      <Trophy className="h-4 w-4 mr-2" />
-                      <span>Achievements</span>
-                      <span className="ml-auto text-xs text-muted-foreground">(Coming Soon)</span>
-                    </DropdownMenuItem>
+                      <DropdownMenuItem asChild>
+                        <Link to="/settings/customization" className="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-card-dark cursor-pointer">
+                          <Settings className="h-4 w-4 text-muted-foreground" />
+                          <span className="text-sm font-medium">Settings</span>
+                        </Link>
+                      </DropdownMenuItem>
 
-                    <DropdownMenuSeparator className="bg-border" />
+                      <DropdownMenuSeparator className="my-2" />
 
-                    <DropdownMenuItem
-                      onClick={() => setDeleteDialogOpen(true)}
-                      className="cursor-pointer text-destructive focus:text-destructive px-3 py-2"
-                    >
-                      <Trash2 className="h-4 w-4 mr-2" />
-                      <span>Delete Account</span>
-                    </DropdownMenuItem>
-
-                    <DropdownMenuItem
-                      onClick={signOut}
-                      className="cursor-pointer px-3 py-2"
-                    >
-                      <LogOut className="h-4 w-4 mr-2" />
-                      <span>Sign Out</span>
-                    </DropdownMenuItem>
+                      <DropdownMenuItem onClick={signOut} className="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-card-dark cursor-pointer">
+                        <LogOut className="h-4 w-4 text-muted-foreground" />
+                        <span className="text-sm font-medium">Sign Out</span>
+                      </DropdownMenuItem>
+                    </div>
                   </DropdownMenuContent>
                 </DropdownMenu>
               </>
             ) : (
               <>
                 {/* Desktop: Show buttons */}
-                <div className="hidden md:flex items-center gap-2 sm:gap-3">
+                <div className="hidden md:flex items-center gap-3">
                   <Button
                     variant="outline"
                     onClick={() => handleOpenAuth("signin")}
-                    className="border-primary/20 hover:border-primary hover:bg-primary/10 text-foreground text-sm"
+                    className="border-border hover:border-primary/50 hover:bg-primary/5 text-foreground font-medium"
                   >
-                    Login
+                    Sign In
                   </Button>
                   <Button
                     onClick={() => handleOpenAuth("signup")}
-                    className="bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-black font-bold text-sm"
+                    className="bg-primary hover:bg-primary/90 text-primary-foreground font-bold"
                   >
-                    Create Account
+                    Get Started
                   </Button>
                 </div>
 

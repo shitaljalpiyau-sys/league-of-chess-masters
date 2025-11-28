@@ -228,14 +228,33 @@ const Social = () => {
       }));
 
       setMessages(messagesWithReactions as any);
-      organizeChatRooms(messagesWithReactions as any);
+      await organizeChatRooms(messagesWithReactions as any);
     }
   };
 
-  const organizeChatRooms = (allMessages: Message[]) => {
+  const organizeChatRooms = async (allMessages: Message[]) => {
     if (!user) return;
 
     const roomsMap = new Map<string, ChatRoom>();
+    const friendIds = new Set<string>();
+    
+    // Collect all unique friend IDs from messages
+    allMessages.forEach(msg => {
+      const friendId = msg.sender_id === user.id ? msg.receiver_id : msg.sender_id;
+      if (!blockedUsers.has(friendId)) {
+        friendIds.add(friendId);
+      }
+    });
+
+    // Fetch friend profiles
+    const { data: friendProfiles } = await supabase
+      .from('profiles')
+      .select('id, username, avatar_url')
+      .in('id', Array.from(friendIds));
+
+    const friendsMap = new Map(
+      (friendProfiles || []).map(f => [f.id, f])
+    );
     
     allMessages.forEach(msg => {
       const friendId = msg.sender_id === user.id ? msg.receiver_id : msg.sender_id;
@@ -243,7 +262,7 @@ const Social = () => {
       // Skip if user is blocked
       if (blockedUsers.has(friendId)) return;
       
-      const friend = friends.find(f => f.id === friendId);
+      const friend = friendsMap.get(friendId);
       if (!friend) return;
 
       // Check if message is deleted for current user
@@ -257,7 +276,7 @@ const Social = () => {
         roomsMap.set(friendId, {
           friendId,
           friendUsername: friend.username,
-          friendAvatar: null,
+          friendAvatar: friend.avatar_url,
           lastMessage: msg.message,
           lastMessageTime: new Date(msg.created_at),
           unreadCount: msg.receiver_id === user.id && !msg.read ? 1 : 0,

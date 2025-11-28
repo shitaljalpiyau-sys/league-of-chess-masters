@@ -1,43 +1,37 @@
-// Stockfish Web Worker
-// Load Stockfish from CDN
-self.importScripts('https://cdnjs.cloudflare.com/ajax/libs/stockfish.js/10.0.2/stockfish.js');
+// Stockfish Web Worker - UCI Protocol Handler
+importScripts('https://cdnjs.cloudflare.com/ajax/libs/stockfish.js/10.0.2/stockfish.js');
 
-let engine = null;
+let stockfish = null;
+let isReady = false;
 
-// Initialize Stockfish engine
-try {
-  if (typeof STOCKFISH !== 'undefined') {
-    engine = STOCKFISH();
-    console.log('Stockfish engine initialized');
-  } else {
-    console.error('STOCKFISH not found after loading script');
-  }
-} catch (e) {
-  console.error('Failed to initialize Stockfish:', e);
-}
-
-// Forward messages from engine to main thread
-if (engine && typeof engine.addMessageListener === 'function') {
-  engine.addMessageListener((message) => {
-    postMessage(message);
-  });
-} else if (engine && typeof engine.onmessage === 'function') {
-  engine.onmessage = (message) => {
-    postMessage(message);
+// Initialize Stockfish
+if (typeof STOCKFISH !== 'undefined') {
+  stockfish = STOCKFISH();
+  
+  // Handle messages from Stockfish engine
+  stockfish.onmessage = function(line) {
+    // Forward all engine messages to main thread
+    postMessage(line);
+    
+    // Track ready state
+    if (line === 'readyok') {
+      isReady = true;
+    }
   };
+  
+  console.log('Stockfish worker initialized');
+} else {
+  console.error('STOCKFISH not available');
+  postMessage('error: STOCKFISH not loaded');
 }
 
-// Forward messages from main thread to engine
-self.onmessage = (e) => {
-  if (engine && typeof engine.postMessage === 'function') {
-    engine.postMessage(e.data);
-  } else if (engine) {
-    engine(e.data);
+// Handle messages from main thread
+self.onmessage = function(e) {
+  const command = e.data;
+  
+  if (stockfish) {
+    stockfish.postMessage(command);
+  } else {
+    postMessage('error: engine not initialized');
   }
-};
-
-// Error handling
-self.onerror = (error) => {
-  console.error('Worker error:', error);
-  postMessage({ error: error.message });
 };

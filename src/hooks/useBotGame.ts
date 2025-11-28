@@ -58,54 +58,53 @@ export const useBotGame = (initialDifficulty: Difficulty = 'moderate') => {
   const engineRef = useRef<any>(null);
   const pendingMoveRef = useRef<((move: string) => void) | null>(null);
 
-  // Initialize Stockfish engine
+  // Initialize Stockfish engine via Web Worker
   useEffect(() => {
-    const initEngine = async () => {
-      try {
-        // Dynamically import stockfish
-        const StockfishModule = await import('stockfish');
-        const Stockfish = StockfishModule.default || StockfishModule;
-        const engine = typeof Stockfish === 'function' ? Stockfish() : new (Stockfish as any)();
-        engineRef.current = engine;
+    try {
+      // Create Stockfish worker
+      const engine = new Worker('/stockfish.worker.js');
+      engineRef.current = engine;
 
-        // Set up message handler
-        engine.onmessage = (event: MessageEvent) => {
-          const message = event.data || event;
-          console.log('Stockfish:', message);
+      // Set up message handler
+      engine.onmessage = (event: MessageEvent) => {
+        const message = event.data as string;
+        console.log('Stockfish:', message);
 
-          if (message === 'uciok') {
-            engine.postMessage('isready');
-          } else if (message === 'readyok') {
-            setEngineReady(true);
-            console.log('Stockfish engine ready');
-          } else if (typeof message === 'string' && message.startsWith('bestmove')) {
-            const match = message.match(/bestmove ([a-h][1-8][a-h][1-8][qrbn]?)/);
-            if (match && pendingMoveRef.current) {
-              pendingMoveRef.current(match[1]);
-              pendingMoveRef.current = null;
-            }
+        if (message === 'uciok') {
+          engine.postMessage('isready');
+        } else if (message === 'readyok') {
+          setEngineReady(true);
+          console.log('Stockfish engine ready');
+        } else if (message.startsWith('bestmove')) {
+          const match = message.match(/bestmove ([a-h][1-8][a-h][1-8][qrbn]?)/);
+          if (match && pendingMoveRef.current) {
+            pendingMoveRef.current(match[1]);
+            pendingMoveRef.current = null;
           }
-        };
+        }
+      };
 
-        // Initialize UCI
-        engine.postMessage('uci');
-      } catch (error) {
-        console.error('Failed to initialize Stockfish:', error);
-      }
-    };
+      // Handle worker errors
+      engine.onerror = (error) => {
+        console.error('Stockfish worker error:', error);
+      };
 
-    initEngine();
+      // Initialize UCI
+      engine.postMessage('uci');
+    } catch (error) {
+      console.error('Failed to initialize Stockfish worker:', error);
+    }
 
     return () => {
       if (engineRef.current) {
-        engineRef.current.terminate?.();
+        engineRef.current.terminate();
       }
     };
   }, []);
 
   // Configure engine for current difficulty
   const configureEngine = useCallback(() => {
-    if (!engineRef.current) return;
+    if (!engineRef.current || !engineReady) return;
 
     const config = DIFFICULTY_CONFIG[difficulty];
     const engine = engineRef.current;
@@ -124,7 +123,7 @@ export const useBotGame = (initialDifficulty: Difficulty = 'moderate') => {
     }
 
     console.log(`Stockfish configured: ${difficulty} - ${config.description}`);
-  }, [difficulty]);
+  }, [difficulty, engineReady]);
 
   // Get best move from Stockfish
   const getBotMove = useCallback(async (game: Chess): Promise<string> => {

@@ -205,10 +205,11 @@ serve(async (req) => {
     // Check game end conditions
     if (chess.isCheckmate()) {
       gameStatus = "completed";
-      gameResult = chess.turn() === "w" ? "0-1" : "1-0";
+      // Database expects: 'white_wins', 'black_wins', 'draw', 'abandoned'
+      gameResult = chess.turn() === "w" ? "black_wins" : "white_wins";
     } else if (chess.isDraw() || chess.isStalemate()) {
       gameStatus = "completed";
-      gameResult = "1/2-1/2";
+      gameResult = "draw";
     }
 
     // Build move history

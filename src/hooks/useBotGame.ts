@@ -2,6 +2,8 @@ import { useState, useCallback, useEffect } from 'react';
 import { Chess } from 'chess.js';
 import type { Square, Move } from 'chess.js';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
+import { useXPSystem } from '@/hooks/useXPSystem';
 
 type Difficulty = 'easy' | 'moderate' | 'hard';
 
@@ -42,6 +44,8 @@ export const useBotGame = (difficulty: Difficulty = 'moderate') => {
   const [chess, setChess] = useState(new Chess());
   const [playerColor] = useState<'white' | 'black'>('white');
   const [isThinking, setIsThinking] = useState(false);
+  const { user, refreshProfile } = useAuth();
+  const { awardMatchXP } = useXPSystem();
 
   // EASY MODE: Random moves with intentional mistakes
   const getEasyMove = useCallback((game: Chess): Move | null => {
@@ -301,22 +305,53 @@ export const useBotGame = (difficulty: Difficulty = 'moderate') => {
   // Save bot game to match_history when game ends
   useEffect(() => {
     const saveGameToHistory = async () => {
-      if (!chess.isGameOver()) return;
+      if (!chess.isGameOver() || !user) return;
       
       const result = chess.isCheckmate() 
         ? (chess.turn() === 'w' ? 'black_wins' : 'white_wins')
         : 'draw';
       
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-      
       const { data: profile } = await supabase
         .from('profiles')
-        .select('username, rating, class')
+        .select('username, rating, class, games_played, games_won')
         .eq('id', user.id)
         .single();
       
       if (!profile) return;
+      
+      // Determine if player won
+      const playerWon = (playerColor === 'white' && result === 'white_wins') || 
+                        (playerColor === 'black' && result === 'black_wins');
+      const isDraw = result === 'draw';
+      const moveCount = chess.history().length;
+      const isFastCheckmate = playerWon && moveCount < 25;
+      
+      // Update profile stats
+      const updatedStats: any = {
+        games_played: profile.games_played + 1,
+      };
+      
+      if (playerWon) {
+        updatedStats.games_won = profile.games_won + 1;
+      }
+      
+      await supabase
+        .from('profiles')
+        .update(updatedStats)
+        .eq('id', user.id);
+      
+      await refreshProfile();
+      
+      // Award XP
+      setTimeout(() => {
+        if (playerWon) {
+          awardMatchXP('win', { fastCheckmate: isFastCheckmate });
+        } else if (isDraw) {
+          awardMatchXP('draw');
+        } else {
+          awardMatchXP('loss');
+        }
+      }, 500);
       
       // Generate FEN history
       const fenHistory: string[] = [new Chess().fen()];
@@ -339,7 +374,7 @@ export const useBotGame = (difficulty: Difficulty = 'moderate') => {
         player2_rating_after: 1200,
         player1_class: profile.class,
         player2_class: difficulty === 'hard' ? 'A' : difficulty === 'moderate' ? 'B' : 'C',
-        winner_id: result === 'white_wins' ? user.id : result === 'black_wins' ? user.id : null,
+        winner_id: playerWon ? user.id : isDraw ? null : user.id,
         result,
         pgn: chess.pgn(),
         fen_history: fenHistory,
@@ -351,7 +386,7 @@ export const useBotGame = (difficulty: Difficulty = 'moderate') => {
     };
     
     saveGameToHistory();
-  }, [chess.isGameOver(), difficulty]);
+  }, [chess.isGameOver(), difficulty, user, playerColor, awardMatchXP, refreshProfile]);
 
   return {
     chess,

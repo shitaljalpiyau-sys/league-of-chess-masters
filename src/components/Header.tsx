@@ -9,6 +9,8 @@ import { useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { Link, useNavigate } from "react-router-dom";
 import { PlayerSearch } from "@/components/PlayerSearch";
+import { XPBar } from "@/components/XPBar";
+import { getTierForLevel } from "@/utils/xpSystem";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -207,35 +209,17 @@ export const Header = () => {
                         <p className="text-base font-bold text-foreground mb-1">
                           {profile?.username || "Player"}
                         </p>
-                        <div className="inline-block px-2 py-0.5 rounded bg-amber-500/20 border border-amber-500/30">
-                          <span className="text-xs font-medium text-amber-500 uppercase">WOOD</span>
+                        <div className="inline-block px-2 py-0.5 rounded bg-gradient-to-br from-primary/20 to-primary/10 border border-primary/30">
+                          <span className="text-xs font-medium text-primary uppercase">
+                            {getTierForLevel(profile?.level || 1).name}
+                          </span>
                         </div>
                       </div>
                     </div>
 
-                    {/* Level Progress */}
-                    <div className="py-4 space-y-3 border-b border-border">
-                      <div className="flex justify-between items-start">
-                        <div>
-                          <p className="text-xs text-muted-foreground mb-1">Current Level</p>
-                          <p className="text-lg font-bold text-foreground">Level {(profile as any)?.level || 3}</p>
-                          <p className="text-xs text-muted-foreground">{(profile as any)?.xp || 31} XP until next level</p>
-                        </div>
-                        <div className="text-right">
-                          <p className="text-xs text-muted-foreground mb-1">Next Rank</p>
-                          <p className="text-sm font-bold text-foreground">Iron</p>
-                          <p className="text-xs text-muted-foreground">in 6 levels</p>
-                        </div>
-                      </div>
-                      <div className="space-y-1">
-                        <div className="flex justify-between text-xs">
-                          <span className="text-muted-foreground">Level Progress</span>
-                          <span className="text-primary font-medium">{(profile as any)?.xp || 269} XP / 300 XP</span>
-                        </div>
-                        <div className="h-2 bg-card-dark rounded-full overflow-hidden">
-                          <div className="h-full bg-gradient-to-r from-primary to-primary/80 rounded-full" style={{ width: `${(((profile as any)?.xp || 269) / 300) * 100}%` }} />
-                        </div>
-                      </div>
+                    {/* Level Progress with XPBar */}
+                    <div className="py-4 border-b border-border">
+                      <XPBar showDetails={true} compact={true} />
                     </div>
 
                     {/* Menu Items */}

@@ -1,9 +1,12 @@
 import { useState, useEffect, useRef } from "react";
-import { Search, Loader2 } from "lucide-react";
+import { Search, Loader2, UserPlus, Check } from "lucide-react";
 import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "@/contexts/AuthContext";
+import { toast } from "sonner";
 
 interface Player {
   id: string;
@@ -18,8 +21,11 @@ export const PlayerSearchDropdown = () => {
   const [players, setPlayers] = useState<Player[]>([]);
   const [isOpen, setIsOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [friendRequests, setFriendRequests] = useState<Set<string>>(new Set());
+  const [friendships, setFriendships] = useState<Set<string>>(new Set());
   const dropdownRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
+  const { user } = useAuth();
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -31,6 +37,38 @@ export const PlayerSearchDropdown = () => {
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
+
+  useEffect(() => {
+    if (!user) return;
+
+    const loadFriendData = async () => {
+      // Load friend requests
+      const { data: requests } = await supabase
+        .from("friend_requests")
+        .select("receiver_id")
+        .eq("sender_id", user.id)
+        .eq("status", "pending");
+
+      if (requests) {
+        setFriendRequests(new Set(requests.map(r => r.receiver_id)));
+      }
+
+      // Load friendships
+      const { data: friendships } = await supabase
+        .from("friendships")
+        .select("user1_id, user2_id")
+        .or(`user1_id.eq.${user.id},user2_id.eq.${user.id}`);
+
+      if (friendships) {
+        const friendIds = friendships.map(f => 
+          f.user1_id === user.id ? f.user2_id : f.user1_id
+        );
+        setFriendships(new Set(friendIds));
+      }
+    };
+
+    loadFriendData();
+  }, [user]);
 
   useEffect(() => {
     const searchPlayers = async () => {
@@ -45,6 +83,7 @@ export const PlayerSearchDropdown = () => {
         .from("profiles")
         .select("id, username, avatar_url, rating, class")
         .ilike("username", `%${searchQuery}%`)
+        .neq("id", user?.id || "")
         .limit(8);
 
       if (!error && data) {
@@ -56,13 +95,36 @@ export const PlayerSearchDropdown = () => {
 
     const debounce = setTimeout(searchPlayers, 300);
     return () => clearTimeout(debounce);
-  }, [searchQuery]);
+  }, [searchQuery, user]);
 
   const handlePlayerClick = (playerId: string) => {
     navigate(`/profile/${playerId}`);
     setIsOpen(false);
     setSearchQuery("");
   };
+
+  const sendFriendRequest = async (playerId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!user) return;
+
+    const { error } = await supabase
+      .from("friend_requests")
+      .insert({
+        sender_id: user.id,
+        receiver_id: playerId,
+        status: "pending",
+      });
+
+    if (!error) {
+      setFriendRequests(prev => new Set(prev).add(playerId));
+      toast.success("Friend request sent!");
+    } else {
+      toast.error("Failed to send friend request");
+    }
+  };
+
+  const isFriend = (playerId: string) => friendships.has(playerId);
+  const hasPendingRequest = (playerId: string) => friendRequests.has(playerId);
 
   return (
     <div ref={dropdownRef} className="relative w-full max-w-xs">
@@ -95,12 +157,31 @@ export const PlayerSearchDropdown = () => {
                   {player.username[0].toUpperCase()}
                 </AvatarFallback>
               </Avatar>
-              <div className="flex-1">
-                <p className="text-sm font-semibold text-foreground">{player.username}</p>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold text-foreground truncate">{player.username}</p>
                 <p className="text-xs text-muted-foreground">
                   Class {player.class} • {player.rating} rating
                 </p>
               </div>
+              {isFriend(player.id) ? (
+                <Button size="sm" variant="outline" disabled className="flex-shrink-0">
+                  <Check className="h-4 w-4 mr-1" />
+                  Friends
+                </Button>
+              ) : hasPendingRequest(player.id) ? (
+                <Button size="sm" variant="outline" disabled className="flex-shrink-0">
+                  Pending
+                </Button>
+              ) : (
+                <Button 
+                  size="sm" 
+                  variant="outline"
+                  onClick={(e) => sendFriendRequest(player.id, e)}
+                  className="flex-shrink-0 hover:bg-primary/10 hover:text-primary hover:border-primary"
+                >
+                  <UserPlus className="h-4 w-4" />
+                </Button>
+              )}
             </div>
           ))}
         </div>

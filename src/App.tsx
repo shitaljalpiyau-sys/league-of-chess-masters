@@ -21,6 +21,7 @@ import ThemeInventory from "./pages/ThemeInventory";
 import ThemeStore from "./pages/ThemeStore";
 import Support from "./pages/Support";
 import Friends from "./pages/Friends";
+import Social from "./pages/Social";
 import Challenges from "./pages/Challenges";
 import Game from "./pages/Game";
 import ChallengeArena from "./pages/ChallengeArena";
@@ -76,6 +77,7 @@ const App = () => (
                   <Route path="/inventory" element={<RequireAuth><ThemeInventory /></RequireAuth>} />
                   <Route path="/theme-store" element={<RequireAuth><ThemeStore /></RequireAuth>} />
                   <Route path="/settings/customization" element={<RequireAuth><PageCustomization /></RequireAuth>} />
+                  <Route path="/social" element={<RequireAuth><Social /></RequireAuth>} />
                   <Route path="/friends" element={<RequireAuth><Friends /></RequireAuth>} />
                 </Route>
                 

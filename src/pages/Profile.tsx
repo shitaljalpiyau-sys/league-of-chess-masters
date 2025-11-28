@@ -34,29 +34,34 @@ const Profile = () => {
   
   const tier = getTierForLevel(profile?.level || 1);
   const winRate = calculateWinRate(profile?.games_won || 0, profile?.games_played || 0);
-  const [leaderboardRank, setLeaderboardRank] = useState<number>(0);
+  const [leaderboardRank, setLeaderboardRank] = useState<string>("Unranked");
 
-  // Fetch leaderboard rank
+  // Fetch leaderboard rank based on XP
   useEffect(() => {
     if (!profile) return;
     
     const fetchRank = async () => {
+      if (profile.xp <= 0) {
+        setLeaderboardRank("Unranked");
+        return;
+      }
+      
       const { count } = await supabase
         .from("profiles")
         .select("*", { count: "exact", head: true })
-        .gt("rating", profile.rating);
+        .gt("xp", profile.xp);
       
-      setLeaderboardRank((count || 0) + 1);
+      setLeaderboardRank(`#${(count || 0) + 1}`);
     };
     
     fetchRank();
-  }, [profile?.rating]);
+  }, [profile?.xp]);
   
   const stats = [
     { label: "Games Played", value: profile?.games_played || 0, icon: Target },
     { label: "Win Rate", value: `${winRate}%`, icon: Trophy },
-    { label: "Leaderboard Rank", value: `#${leaderboardRank}`, icon: TrendingUp },
-    { label: "Total Points", value: profile?.points || 0, icon: Star },
+    { label: "Current Rank", value: leaderboardRank, icon: TrendingUp },
+    { label: "Total XP", value: profile?.xp || 0, icon: Star },
   ];
 
   // Check if user is in an active match

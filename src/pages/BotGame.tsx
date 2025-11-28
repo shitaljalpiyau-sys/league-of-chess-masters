@@ -328,9 +328,15 @@ const BotGame = () => {
         )}
 
         <div className={`grid grid-cols-1 ${isMobile ? '' : 'lg:grid-cols-3'} gap-4 sm:gap-6`}>
-          {/* Chessboard - Responsive sizing */}
-          <div className={`${isMobile ? '' : 'lg:col-span-2'} flex justify-center ${isMobile ? 'px-2' : ''}`}>
-            <div className="w-full aspect-square max-w-3xl">
+          {/* Chessboard - Better responsive sizing */}
+          <div className={`${isMobile ? '' : 'lg:col-span-2'} flex justify-center items-center ${isMobile ? 'px-2' : ''}`}>
+            <div 
+              className="w-full aspect-square"
+              style={{ 
+                maxWidth: isMobile ? '100%' : 'min(70vh, 800px)',
+                maxHeight: isMobile ? '100vw' : '70vh',
+              }}
+            >
               {is3DMode ? (
                 <ChessBoard3D
                   chess={chess}

@@ -1,10 +1,11 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { Chess } from "chess.js";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { ChessSounds } from "@/utils/chessSounds";
 import { useXPSystem } from "@/hooks/useXPSystem";
+import { RealtimeChannel } from "@supabase/supabase-js";
 
 interface Game {
   id: string;
@@ -29,6 +30,8 @@ export const useMultiplayerGame = (gameId: string | null) => {
   const [loading, setLoading] = useState(true);
   const { user, refreshProfile } = useAuth();
   const { awardMatchXP } = useXPSystem();
+  const gameEndedRef = useRef(false);
+  const channelRef = useRef<RealtimeChannel | null>(null);
 
   const playerColor = game 
     ? (game.white_player_id === user?.id ? 'white' : 'black')
@@ -41,6 +44,9 @@ export const useMultiplayerGame = (gameId: string | null) => {
       setLoading(false);
       return;
     }
+
+    // Reset game ended flag when game ID changes
+    gameEndedRef.current = false;
 
     // Initialize sounds
     ChessSounds.initialize();
@@ -61,6 +67,11 @@ export const useMultiplayerGame = (gameId: string | null) => {
         (payload) => {
           const updatedGame = payload.new as any;
           
+          // Ignore null or invalid updates
+          if (!updatedGame || !updatedGame.id) {
+            return;
+          }
+          
           setGame((prevGame) => {
             if (!prevGame) return null;
             
@@ -72,14 +83,18 @@ export const useMultiplayerGame = (gameId: string | null) => {
             
             // Update chess instance
             const newChess = new Chess();
-            newChess.loadPgn(updatedGame.pgn);
+            try {
+              newChess.loadPgn(updatedGame.pgn);
+            } catch (e) {
+              console.error('Failed to load PGN:', e);
+              return prevGame; // Don't update if PGN is invalid
+            }
             
             // Play sound if move was made by opponent
-            if (updatedGame.move_count > prevGame.move_count) {
+            if (updatedGame.move_count > prevGame.move_count && updatedGame.status === 'active') {
               const currentPlayerColor = updatedGame.white_player_id === user?.id ? 'white' : 'black';
               const playerTurn = updatedGame.current_turn === currentPlayerColor;
               if (playerTurn) {
-                // Opponent just moved
                 const history = newChess.history({ verbose: true });
                 const lastMove = history[history.length - 1];
                 
@@ -95,98 +110,10 @@ export const useMultiplayerGame = (gameId: string | null) => {
               }
             }
             
-            // Play game end sound and award XP
-            if (updatedGame.status === 'completed' && prevGame.status === 'active') {
-              ChessSounds.playGameEnd();
-              
-              // Award XP based on game result
-              if (user?.id && updatedGame.result) {
-                const moveCount = updatedGame.move_count || 0;
-                const isFastCheckmate = moveCount < 25;
-                
-                let result: 'win' | 'draw' | 'loss';
-                if (updatedGame.result === '1/2-1/2') {
-                  result = 'draw';
-                } else {
-                  // Check if current user won
-                  const isWhitePlayer = updatedGame.white_player_id === user.id;
-                  const whiteWon = updatedGame.result === '1-0';
-                  const blackWon = updatedGame.result === '0-1';
-                  
-                  if ((isWhitePlayer && whiteWon) || (!isWhitePlayer && blackWon)) {
-                    result = 'win';
-                    
-                    // Update games_won count
-                    setTimeout(async () => {
-                      const { data: currentProfile } = await supabase
-                        .from('profiles')
-                        .select('games_won, games_played')
-                        .eq('id', user.id)
-                        .single();
-                      
-                      if (currentProfile) {
-                        await supabase
-                          .from('profiles')
-                          .update({
-                            games_won: currentProfile.games_won + 1,
-                            games_played: currentProfile.games_played + 1,
-                          })
-                          .eq('id', user.id);
-                      }
-                      await refreshProfile();
-                    }, 0);
-                  } else {
-                    result = 'loss';
-                    
-                    // Update only games_played for loss
-                    setTimeout(async () => {
-                      const { data: currentProfile } = await supabase
-                        .from('profiles')
-                        .select('games_played')
-                        .eq('id', user.id)
-                        .single();
-                      
-                      if (currentProfile) {
-                        await supabase
-                          .from('profiles')
-                          .update({
-                            games_played: currentProfile.games_played + 1,
-                          })
-                          .eq('id', user.id);
-                      }
-                      await refreshProfile();
-                    }, 0);
-                  }
-                }
-                
-                // For draws, update only games_played
-                if (result === 'draw') {
-                  setTimeout(async () => {
-                    const { data: currentProfile } = await supabase
-                      .from('profiles')
-                      .select('games_played')
-                      .eq('id', user.id)
-                      .single();
-                    
-                    if (currentProfile) {
-                      await supabase
-                        .from('profiles')
-                        .update({
-                          games_played: currentProfile.games_played + 1,
-                        })
-                        .eq('id', user.id);
-                    }
-                    await refreshProfile();
-                  }, 0);
-                }
-                
-                // Award XP based on result
-                setTimeout(() => {
-                  awardMatchXP(result, {
-                    fastCheckmate: result === 'win' && isFastCheckmate,
-                  });
-                }, 500);
-              }
+            // Handle game end ONCE
+            if (updatedGame.status === 'completed' && prevGame.status === 'active' && !gameEndedRef.current) {
+              gameEndedRef.current = true;
+              handleGameOver(updatedGame, newChess);
             }
             
             setChess(newChess);
@@ -196,10 +123,80 @@ export const useMultiplayerGame = (gameId: string | null) => {
       )
       .subscribe();
 
+    channelRef.current = channel;
+
     return () => {
-      supabase.removeChannel(channel);
+      if (channelRef.current) {
+        supabase.removeChannel(channelRef.current);
+        channelRef.current = null;
+      }
     };
   }, [gameId, user?.id]);
+
+  const handleGameOver = async (gameData: any, chessInstance: Chess) => {
+    if (!user?.id || !gameData.result) return;
+
+    // Unsubscribe from realtime immediately
+    if (channelRef.current) {
+      supabase.removeChannel(channelRef.current);
+      channelRef.current = null;
+    }
+
+    // Play game end sound
+    ChessSounds.playGameEnd();
+
+    const moveCount = gameData.move_count || 0;
+    const isFastCheckmate = moveCount < 25;
+    
+    let result: 'win' | 'draw' | 'loss';
+    const isWhitePlayer = gameData.white_player_id === user.id;
+    const whiteWon = gameData.result === '1-0';
+    const blackWon = gameData.result === '0-1';
+    
+    if (gameData.result === '1/2-1/2') {
+      result = 'draw';
+    } else if ((isWhitePlayer && whiteWon) || (!isWhitePlayer && blackWon)) {
+      result = 'win';
+    } else {
+      result = 'loss';
+    }
+
+    // Update stats
+    try {
+      const { data: currentProfile } = await supabase
+        .from('profiles')
+        .select('games_won, games_played')
+        .eq('id', user.id)
+        .single();
+      
+      if (currentProfile) {
+        const updates: any = {
+          games_played: currentProfile.games_played + 1,
+        };
+        
+        if (result === 'win') {
+          updates.games_won = currentProfile.games_won + 1;
+        }
+        
+        await supabase
+          .from('profiles')
+          .update(updates)
+          .eq('id', user.id);
+      }
+      
+      await refreshProfile();
+      
+      // Award XP
+      setTimeout(() => {
+        awardMatchXP(result, {
+          fastCheckmate: result === 'win' && isFastCheckmate,
+        });
+      }, 500);
+    } catch (error) {
+      console.error('Error updating profile:', error);
+      toast.error('Failed to update stats');
+    }
+  };
 
   const fetchGame = async (retryCount = 0) => {
     if (!gameId) return;
@@ -267,8 +264,13 @@ export const useMultiplayerGame = (gameId: string | null) => {
   };
 
   const makeMove = async (from: string, to: string, promotion?: string) => {
+    // Don't allow moves if game is over
+    if (!game || game.status !== 'active' || gameEndedRef.current) {
+      return false;
+    }
+
     // Critical security check: ensure it's player's turn
-    if (!game || !isPlayerTurn) {
+    if (!isPlayerTurn) {
       toast.error("It's not your turn!");
       return false;
     }

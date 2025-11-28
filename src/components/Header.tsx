@@ -1,4 +1,4 @@
-import { Search, Bell, User, LogOut, Settings, Trophy, Package, Menu, Trash2 } from "lucide-react";
+import { Bell, User, LogOut, Settings, Trophy, Package, Menu, Trash2, MessageCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { Switch } from "@/components/ui/switch";
@@ -27,15 +27,19 @@ import { AvatarSelectionModal } from "@/components/AvatarSelectionModal";
 import { AuthModal } from "@/components/AuthModal";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { DeleteAccountDialog } from "@/components/DeleteAccountDialog";
+import { MessagingPanel } from "@/components/MessagingPanel";
+import { Input } from "@/components/ui/input";
 
 export const Header = () => {
   const [practiceMode, setPracticeMode] = useState(false);
   const [notificationOpen, setNotificationOpen] = useState(false);
+  const [messagingOpen, setMessagingOpen] = useState(false);
   const [avatarModalOpen, setAvatarModalOpen] = useState(false);
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const [authMode, setAuthMode] = useState<"signin" | "signup">("signin");
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
   const [selectedAvatar, setSelectedAvatar] = useState(
     "https://api.dicebear.com/7.x/avataaars/svg?seed=Felix"
   );
@@ -90,19 +94,25 @@ export const Header = () => {
               </div>
             )}
 
+            {/* CENTER-RIGHT - Search Bar (only when logged in) */}
+            {user && (
+              <div className="hidden md:flex flex-1 max-w-md mx-4">
+                <div className="relative w-full">
+                  <Input
+                    type="text"
+                    placeholder="Search players..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="w-full h-10 pl-4 pr-4 bg-card-dark/50 border border-border focus:border-primary/50 focus:bg-card-dark text-foreground placeholder:text-muted-foreground rounded-lg transition-all"
+                  />
+                </div>
+              </div>
+            )}
+
             {/* RIGHT SIDE */}
-            <div className="flex items-center gap-3 flex-shrink-0">
+            <div className="flex items-center gap-2 flex-shrink-0">
               {user ? (
                 <>
-                  {/* Search Icon */}
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-10 w-10 text-muted-foreground hover:text-foreground hover:bg-card-dark transition-colors"
-                  >
-                    <Search className="h-5 w-5" />
-                  </Button>
-
                   {/* Notifications */}
                   <Button
                     variant="ghost"
@@ -114,6 +124,17 @@ export const Header = () => {
                     {unreadCount > 0 && (
                       <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-primary rounded-full" />
                     )}
+                  </Button>
+
+                  {/* Messages */}
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="relative h-10 w-10 text-muted-foreground hover:text-foreground hover:bg-card-dark transition-colors"
+                    onClick={() => setMessagingOpen(true)}
+                  >
+                    <MessageCircle className="h-5 w-5" />
+                    <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-primary rounded-full" />
                   </Button>
 
                   {/* User Profile Dropdown */}
@@ -395,6 +416,7 @@ export const Header = () => {
       </header>
 
       <NotificationPanel open={notificationOpen} onOpenChange={setNotificationOpen} />
+      <MessagingPanel open={messagingOpen} onClose={() => setMessagingOpen(false)} />
       <AvatarSelectionModal
         open={avatarModalOpen}
         onOpenChange={setAvatarModalOpen}

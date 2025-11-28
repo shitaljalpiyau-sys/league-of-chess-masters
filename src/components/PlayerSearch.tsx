@@ -1,10 +1,11 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
-import { Search, Users, Eye, Loader2 } from "lucide-react";
+import { Search, Users, Eye, Loader2, Swords } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
+import { toast } from "sonner";
 
 interface Player {
   id: string;
@@ -112,13 +113,16 @@ export const PlayerSearch = ({
   const handlePlayerClick = (player: Player) => {
     if (onPlayerSelect) {
       onPlayerSelect(player);
+      setQuery("");
+      setResults([]);
+      setIsOpen(false);
     } else {
+      // Navigate to player profile
       navigate(`/profile/${player.id}`);
+      setQuery("");
+      setResults([]);
+      setIsOpen(false);
     }
-    // Always clear search after selection
-    setQuery("");
-    setResults([]);
-    setIsOpen(false);
   };
 
   const handleSpectate = (matchId: string, e: React.MouseEvent) => {
@@ -127,6 +131,35 @@ export const PlayerSearch = ({
     setQuery("");
     setResults([]);
     setIsOpen(false);
+  };
+
+  const handleChallenge = async (player: Player, e: React.MouseEvent) => {
+    e.stopPropagation();
+    
+    if (player.in_match) {
+      toast.error(`${player.username} is currently in a match`);
+      return;
+    }
+
+    // Use default time control for quick challenge
+    const timeControl = "10+0";
+    
+    const { error } = await supabase
+      .from("challenges")
+      .insert({
+        challenger_id: user?.id,
+        challenged_id: player.id,
+        time_control: timeControl,
+      });
+
+    if (error) {
+      toast.error("Failed to send challenge");
+    } else {
+      toast.success(`Challenge sent to ${player.username}!`);
+      setQuery("");
+      setResults([]);
+      setIsOpen(false);
+    }
   };
 
   return (
@@ -188,17 +221,30 @@ export const PlayerSearch = ({
                       </p>
                     </div>
                   </div>
-                  {player.in_match && showSpectateButton && (
-                    <Button
-                      size="sm"
-                      variant="default"
-                      onClick={(e) => handleSpectate(player.match_id!, e)}
-                      className="gap-2 bg-green-600 hover:bg-green-700 hover:scale-105 active:scale-95 transition-all shadow-md"
-                    >
-                      <Eye className="h-4 w-4" />
-                      Spectate
-                    </Button>
-                  )}
+                  <div className="flex gap-2">
+                    {player.in_match && showSpectateButton && (
+                      <Button
+                        size="sm"
+                        variant="default"
+                        onClick={(e) => handleSpectate(player.match_id!, e)}
+                        className="gap-2 bg-green-600 hover:bg-green-700 hover:scale-105 active:scale-95 transition-all shadow-md"
+                      >
+                        <Eye className="h-4 w-4" />
+                        Spectate
+                      </Button>
+                    )}
+                    {!player.in_match && user && player.id !== user.id && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={(e) => handleChallenge(player, e)}
+                        className="gap-2 hover:scale-105 active:scale-95 transition-all shadow-md border-primary/50 hover:bg-primary/10"
+                      >
+                        <Swords className="h-4 w-4" />
+                        Challenge
+                      </Button>
+                    )}
+                  </div>
                 </div>
               ))}
             </div>

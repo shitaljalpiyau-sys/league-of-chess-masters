@@ -2,6 +2,8 @@ import { TrendingGames } from "@/components/dashboard/TrendingGames";
 import { LeaderboardPreview } from "@/components/dashboard/LeaderboardPreview";
 import { RecentWinnings } from "@/components/dashboard/RecentWinnings";
 import { usePageCustomization } from "@/contexts/PageCustomizationContext";
+import { PlayerSearch } from "@/components/PlayerSearch";
+import { Card } from "@/components/ui/card";
 
 const Index = () => {
   const { preferences } = usePageCustomization();
@@ -15,9 +17,16 @@ const Index = () => {
           <h1 className="text-5xl md:text-6xl lg:text-7xl font-black mb-4 bg-gradient-to-r from-primary via-accent to-primary bg-clip-text text-transparent">
             ELITE CHESS ARENA
           </h1>
-          <p className="text-lg md:text-xl text-muted-foreground max-w-3xl mx-auto font-semibold">
+          <p className="text-lg md:text-xl text-muted-foreground max-w-3xl mx-auto font-semibold mb-6">
             Experience the future of competitive chess — Watch trending matches, climb the leaderboard, and claim victory
           </p>
+          
+          {/* Player Search */}
+          <div className="max-w-2xl mx-auto px-4">
+            <Card className="p-4 bg-card/50 backdrop-blur-sm border-border">
+              <PlayerSearch placeholder="Search for players to challenge..." />
+            </Card>
+          </div>
         </div>
 
         {/* Section 1: Trending Games */}

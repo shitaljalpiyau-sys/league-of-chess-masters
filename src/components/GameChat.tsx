@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { 
   Send, Smile, Heart, ThumbsUp, Flag, Volume2, VolumeX, 
-  MoreVertical, Reply, Copy 
+  MoreVertical, Reply, Copy, Lock
 } from "lucide-react";
 import { toast } from "sonner";
 import EmojiPicker from 'emoji-picker-react';
@@ -22,6 +22,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { encryptMessage, decryptMessage } from "@/utils/chatEncryption";
 
 interface Message {
   id: string;
@@ -40,6 +41,8 @@ interface GameChatProps {
   opponentName?: string;
   spectatorCount?: number;
   onResign?: () => void;
+  whitePlayerId?: string;
+  blackPlayerId?: string;
 }
 
 export const GameChat = ({ 
@@ -47,7 +50,9 @@ export const GameChat = ({
   fullscreen = false,
   opponentName = 'Opponent',
   spectatorCount = 0,
-  onResign
+  onResign,
+  whitePlayerId,
+  blackPlayerId
 }: GameChatProps) => {
   const { user, profile } = useAuth();
   const [messages, setMessages] = useState<Message[]>([]);
@@ -83,11 +88,14 @@ export const GameChat = ({
             .eq('id', newMsg.user_id)
             .single();
           
+          // Decrypt message before adding to state
+          const decryptedMsg = await decryptMessage(newMsg.message, gameId);
+          
           // Add message immediately to state
           setMessages(prev => [...prev, {
             id: newMsg.id,
             user_id: newMsg.user_id,
-            message: newMsg.message,
+            message: decryptedMsg,
             created_at: newMsg.created_at,
             profiles: { username: userProfile?.username || 'Player' },
             reactions: []
@@ -138,11 +146,17 @@ export const GameChat = ({
 
       const profileMap = new Map(profiles?.map(p => [p.id, p.username]) || []);
 
-      setMessages(data.map(msg => ({
-        ...msg,
-        profiles: { username: profileMap.get(msg.user_id) || 'Player' },
-        reactions: []
-      })) as any);
+      // Decrypt messages
+      const decryptedMessages = await Promise.all(
+        data.map(async (msg) => ({
+          ...msg,
+          message: await decryptMessage(msg.message, gameId),
+          profiles: { username: profileMap.get(msg.user_id) || 'Player' },
+          reactions: []
+        }))
+      );
+
+      setMessages(decryptedMessages as any);
     }
   };
 
@@ -162,12 +176,16 @@ export const GameChat = ({
     if (!newMessage.trim() || !user) return;
 
     setLoading(true);
+    
+    // Encrypt message before sending
+    const encryptedMessage = await encryptMessage(newMessage.trim(), gameId);
+    
     const { error } = await supabase
       .from('game_messages')
       .insert({
         game_id: gameId,
         user_id: user.id,
-        message: newMessage.trim()
+        message: encryptedMessage
       });
 
     if (error) {
@@ -202,9 +220,12 @@ export const GameChat = ({
       <div className="p-4 border-b border-border bg-secondary/20">
         <div className="flex items-center justify-between">
           <div>
-            <h3 className="text-lg font-bold font-rajdhani">Game Chat</h3>
+            <div className="flex items-center gap-2">
+              <h3 className="text-lg font-bold font-rajdhani">Game Chat</h3>
+              <Lock className="h-3 w-3 text-muted-foreground" />
+            </div>
             <p className="text-xs text-muted-foreground">
-              vs {opponentName} • {spectatorCount} watching
+              vs {opponentName} • {spectatorCount} watching • Messages auto-delete after game
             </p>
           </div>
           <div className="flex items-center gap-2">
@@ -236,6 +257,10 @@ export const GameChat = ({
         <div className="space-y-4">
           {messages.map((msg) => {
             const isOwn = msg.user_id === user?.id;
+            // Determine color based on player ID (white = blue, black = green)
+            const isWhitePlayer = msg.user_id === whitePlayerId;
+            const playerColor = isWhitePlayer ? 'blue' : 'green';
+            
             return (
               <div
                 key={msg.id}
@@ -244,7 +269,7 @@ export const GameChat = ({
                 <div className={`max-w-[85%] ${isOwn ? 'items-end' : 'items-start'}`}>
                   <div className="flex items-center gap-2 mb-1">
                     {!isOwn && (
-                      <p className="text-xs text-muted-foreground font-medium">
+                      <p className={`text-xs font-medium ${playerColor === 'blue' ? 'text-blue-400' : 'text-green-400'}`}>
                         {msg.profiles?.username || 'Player'}
                       </p>
                     )}
@@ -256,10 +281,14 @@ export const GameChat = ({
                   <div className="group relative">
                     <div
                       className={`
-                        p-3 rounded-2xl shadow-sm transition-all hover:shadow-md
+                        p-3 rounded-2xl shadow-sm transition-all hover:shadow-md border
                         ${isOwn 
-                          ? 'bg-primary text-primary-foreground rounded-br-sm' 
-                          : 'bg-secondary/70 rounded-bl-sm'
+                          ? playerColor === 'blue' 
+                            ? 'bg-blue-600/20 text-foreground border-blue-500/50 rounded-br-sm' 
+                            : 'bg-green-600/20 text-foreground border-green-500/50 rounded-br-sm'
+                          : playerColor === 'blue'
+                            ? 'bg-blue-600/10 border-blue-500/30 rounded-bl-sm'
+                            : 'bg-green-600/10 border-green-500/30 rounded-bl-sm'
                         }
                       `}
                     >

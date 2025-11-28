@@ -116,6 +116,8 @@ const Game = () => {
             }
             spectatorCount={spectatorCount}
             onResign={game.status === 'active' ? resign : undefined}
+            whitePlayerId={game.white_player_id}
+            blackPlayerId={game.black_player_id}
           />
         )}
       </div>

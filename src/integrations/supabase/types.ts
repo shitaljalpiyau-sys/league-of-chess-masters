@@ -14,6 +14,27 @@ export type Database = {
   }
   public: {
     Tables: {
+      blocks: {
+        Row: {
+          blocked_user_id: string
+          created_at: string | null
+          id: string
+          user_id: string
+        }
+        Insert: {
+          blocked_user_id: string
+          created_at?: string | null
+          id?: string
+          user_id: string
+        }
+        Update: {
+          blocked_user_id?: string
+          created_at?: string | null
+          id?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       challenge_limits: {
         Row: {
           challenge_count: number | null
@@ -200,6 +221,9 @@ export type Database = {
       direct_messages: {
         Row: {
           created_at: string | null
+          deleted_at: string | null
+          deleted_for_receiver: boolean | null
+          deleted_for_sender: boolean | null
           id: string
           message: string
           read: boolean | null
@@ -208,6 +232,9 @@ export type Database = {
         }
         Insert: {
           created_at?: string | null
+          deleted_at?: string | null
+          deleted_for_receiver?: boolean | null
+          deleted_for_sender?: boolean | null
           id?: string
           message: string
           read?: boolean | null
@@ -216,6 +243,9 @@ export type Database = {
         }
         Update: {
           created_at?: string | null
+          deleted_at?: string | null
+          deleted_for_receiver?: boolean | null
+          deleted_for_sender?: boolean | null
           id?: string
           message?: string
           read?: boolean | null
@@ -238,6 +268,30 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      friend_groups: {
+        Row: {
+          created_at: string | null
+          friend_id: string
+          group_name: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          friend_id: string
+          group_name?: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          friend_id?: string
+          group_name?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: []
       }
       friend_requests: {
         Row: {
@@ -608,6 +662,38 @@ export type Database = {
             columns: ["user_id"]
             isOneToOne: true
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      message_reactions: {
+        Row: {
+          created_at: string | null
+          emoji: string
+          id: string
+          message_id: string
+          reactor_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          emoji: string
+          id?: string
+          message_id: string
+          reactor_id: string
+        }
+        Update: {
+          created_at?: string | null
+          emoji?: string
+          id?: string
+          message_id?: string
+          reactor_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "message_reactions_message_id_fkey"
+            columns: ["message_id"]
+            isOneToOne: false
+            referencedRelation: "direct_messages"
             referencedColumns: ["id"]
           },
         ]

@@ -1,6 +1,10 @@
 import { Trophy, Target, TrendingUp, Award, Crown, Star, Eye, Edit2, Share2, Calendar, User } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { MatchHistory } from "@/components/MatchHistory";
+import { XPBar } from "@/components/XPBar";
+import { LevelUpAnimation } from "@/components/LevelUpAnimation";
+import { useXPSystem } from "@/hooks/useXPSystem";
+import { getTierForLevel, calculateWinRate } from "@/utils/xpSystem";
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
@@ -19,6 +23,7 @@ const usernameSchema = z.string()
 
 const Profile = () => {
   const { profile, refreshProfile } = useAuth();
+  const { isLevelingUp, isTierUpgrade } = useXPSystem();
   const navigate = useNavigate();
   const isMobile = useIsMobile();
   const { toast } = useToast();
@@ -27,9 +32,12 @@ const Profile = () => {
   const [newUsername, setNewUsername] = useState(profile?.username || "");
   const [isUpdating, setIsUpdating] = useState(false);
   
+  const tier = getTierForLevel(profile?.level || 1);
+  const winRate = calculateWinRate(profile?.games_won || 0, profile?.games_played || 0);
+  
   const stats = [
     { label: "Games Played", value: profile?.games_played || 0, icon: Target },
-    { label: "Win Rate", value: profile?.games_played ? Math.round((profile.games_won / profile.games_played) * 100) + "%" : "0%", icon: Trophy },
+    { label: "Win Rate", value: `${winRate}%`, icon: Trophy },
     { label: "Current Rating", value: profile?.rating || 1200, icon: TrendingUp },
     { label: "Total Points", value: profile?.points || 0, icon: Star },
   ];
@@ -207,6 +215,13 @@ const Profile = () => {
                   </span>
                 </div>
                 
+                {/* Numeric User ID */}
+                <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
+                  <span className="font-mono bg-card-dark px-2 py-1 rounded border border-border">
+                    ID: {profile.numeric_user_id || "N/A"}
+                  </span>
+                </div>
+                
                 {/* Member info */}
                 <div className="flex items-center gap-2 text-sm text-muted-foreground mb-4">
                   <Calendar className="h-4 w-4" />
@@ -261,6 +276,15 @@ const Profile = () => {
               ))}
             </div>
           </div>
+        </div>
+
+        {/* XP Progress Section */}
+        <div className="bg-card border border-border rounded-xl p-6 mb-8">
+          <h2 className="text-xl sm:text-2xl font-bold font-rajdhani text-primary mb-6 flex items-center gap-2">
+            <Trophy className="h-6 w-6" />
+            LEVEL & PROGRESSION
+          </h2>
+          <XPBar showDetails={true} compact={false} />
         </div>
 
         {/* Achievements */}
@@ -341,6 +365,13 @@ const Profile = () => {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Level Up Animations */}
+      <LevelUpAnimation 
+        isVisible={isLevelingUp || isTierUpgrade}
+        level={profile?.level || 1}
+        isTierUpgrade={isTierUpgrade}
+      />
     </div>
   );
 };

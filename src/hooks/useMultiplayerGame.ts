@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { ChessSounds } from "@/utils/chessSounds";
+import { useXPSystem } from "@/hooks/useXPSystem";
 
 interface Game {
   id: string;
@@ -26,7 +27,8 @@ export const useMultiplayerGame = (gameId: string | null) => {
   const [game, setGame] = useState<Game | null>(null);
   const [chess, setChess] = useState<Chess>(new Chess());
   const [loading, setLoading] = useState(true);
-  const { user } = useAuth();
+  const { user, refreshProfile } = useAuth();
+  const { awardMatchXP } = useXPSystem();
 
   const playerColor = game 
     ? (game.white_player_id === user?.id ? 'white' : 'black')
@@ -93,9 +95,98 @@ export const useMultiplayerGame = (gameId: string | null) => {
               }
             }
             
-            // Play game end sound
+            // Play game end sound and award XP
             if (updatedGame.status === 'completed' && prevGame.status === 'active') {
               ChessSounds.playGameEnd();
+              
+              // Award XP based on game result
+              if (user?.id && updatedGame.result) {
+                const moveCount = updatedGame.move_count || 0;
+                const isFastCheckmate = moveCount < 25;
+                
+                let result: 'win' | 'draw' | 'loss';
+                if (updatedGame.result === '1/2-1/2') {
+                  result = 'draw';
+                } else {
+                  // Check if current user won
+                  const isWhitePlayer = updatedGame.white_player_id === user.id;
+                  const whiteWon = updatedGame.result === '1-0';
+                  const blackWon = updatedGame.result === '0-1';
+                  
+                  if ((isWhitePlayer && whiteWon) || (!isWhitePlayer && blackWon)) {
+                    result = 'win';
+                    
+                    // Update games_won count
+                    setTimeout(async () => {
+                      const { data: currentProfile } = await supabase
+                        .from('profiles')
+                        .select('games_won, games_played')
+                        .eq('id', user.id)
+                        .single();
+                      
+                      if (currentProfile) {
+                        await supabase
+                          .from('profiles')
+                          .update({
+                            games_won: currentProfile.games_won + 1,
+                            games_played: currentProfile.games_played + 1,
+                          })
+                          .eq('id', user.id);
+                      }
+                      await refreshProfile();
+                    }, 0);
+                  } else {
+                    result = 'loss';
+                    
+                    // Update only games_played for loss
+                    setTimeout(async () => {
+                      const { data: currentProfile } = await supabase
+                        .from('profiles')
+                        .select('games_played')
+                        .eq('id', user.id)
+                        .single();
+                      
+                      if (currentProfile) {
+                        await supabase
+                          .from('profiles')
+                          .update({
+                            games_played: currentProfile.games_played + 1,
+                          })
+                          .eq('id', user.id);
+                      }
+                      await refreshProfile();
+                    }, 0);
+                  }
+                }
+                
+                // For draws, update only games_played
+                if (result === 'draw') {
+                  setTimeout(async () => {
+                    const { data: currentProfile } = await supabase
+                      .from('profiles')
+                      .select('games_played')
+                      .eq('id', user.id)
+                      .single();
+                    
+                    if (currentProfile) {
+                      await supabase
+                        .from('profiles')
+                        .update({
+                          games_played: currentProfile.games_played + 1,
+                        })
+                        .eq('id', user.id);
+                    }
+                    await refreshProfile();
+                  }, 0);
+                }
+                
+                // Award XP based on result
+                setTimeout(() => {
+                  awardMatchXP(result, {
+                    fastCheckmate: result === 'win' && isFastCheckmate,
+                  });
+                }, 500);
+              }
             }
             
             setChess(newChess);

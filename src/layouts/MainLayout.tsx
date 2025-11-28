@@ -6,15 +6,23 @@ import { Footer } from "@/components/Footer";
 import { useAuth } from "@/contexts/AuthContext";
 import { ChallengeNotification } from "@/components/ChallengeNotification";
 import { GlobalAnimations } from "@/components/shared/GlobalAnimations";
+import { LevelUpAnimation } from "@/components/LevelUpAnimation";
+import { useXPSystem } from "@/hooks/useXPSystem";
 import { motion } from "framer-motion";
 
 export const MainLayout = () => {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
+  const { isLevelingUp, isTierUpgrade } = useXPSystem();
   const location = useLocation();
 
   return (
     <SidebarProvider defaultOpen={true}>
       <GlobalAnimations />
+      <LevelUpAnimation 
+        isVisible={isLevelingUp || isTierUpgrade}
+        level={profile?.level || 1}
+        isTierUpgrade={isTierUpgrade}
+      />
       <div className="min-h-screen flex w-full bg-background">
         <AppSidebar />
         <div className="flex-1 flex flex-col min-h-screen" style={{ marginLeft: 'clamp(4rem, 4rem, 260px)' }}>

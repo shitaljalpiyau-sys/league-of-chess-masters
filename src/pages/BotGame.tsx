@@ -7,7 +7,6 @@ import { Card } from '@/components/ui/card';
 import { ArrowLeft, RotateCcw, Brain, Zap, Target, Maximize2, Minimize2, ChevronLeft, ChevronRight } from 'lucide-react';
 import { ChessBoard3D } from '@/components/ChessBoard3D';
 import { UniversalChessBoard } from '@/components/shared/UniversalChessBoard';
-import { BotThinkingIndicator } from '@/components/BotThinkingIndicator';
 import type { Square } from 'chess.js';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -161,8 +160,16 @@ const BotGame = () => {
           </div>
         )}
 
-        {/* Bot Thinking Indicator - Floating */}
-        <BotThinkingIndicator difficulty={difficulty} show={isThinking} />
+        {isThinking && (
+          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-10">
+            <Card className="p-3 bg-card/90 backdrop-blur-sm border-border">
+              <div className="flex items-center gap-2">
+                <Brain className="h-5 w-5 text-primary animate-pulse" />
+                <p className="text-sm text-muted-foreground">Bot is thinking...</p>
+              </div>
+            </Card>
+          </div>
+        )}
 
         {/* Full-screen Chessboard */}
         <div className="flex items-center justify-center w-full h-full p-4">
@@ -309,8 +316,16 @@ const BotGame = () => {
           </Card>
         )}
 
-        {/* Bot Thinking Indicator - Floating for normal mode */}
-        <BotThinkingIndicator difficulty={difficulty} show={isThinking} />
+        {isThinking && (
+          <Card className="p-4 bg-card border-border">
+            <div className="text-center">
+              <div className="flex items-center justify-center gap-2">
+                <Brain className="h-5 w-5 text-primary animate-pulse" />
+                <p className="text-sm text-muted-foreground">Bot is thinking...</p>
+              </div>
+            </div>
+          </Card>
+        )}
 
         <div className={`grid grid-cols-1 ${isMobile ? '' : 'lg:grid-cols-3'} gap-4 sm:gap-6`}>
           {/* Chessboard - Better responsive sizing */}

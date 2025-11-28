@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useRef } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { Chess } from 'chess.js';
 import type { Square, Move } from 'chess.js';
 import { supabase } from '@/integrations/supabase/client';
@@ -7,42 +7,39 @@ import { useXPSystem } from '@/hooks/useXPSystem';
 
 type Difficulty = 'easy' | 'moderate' | 'hard';
 
-interface EngineConfig {
-  skillLevel: number;
-  depth: number;
-  threads: number;
-  moveOverhead: number;
-  contempt?: number;
-  hash?: number;
-  description: string;
-}
+// Piece values for evaluation
+const PIECE_VALUES: { [key: string]: number } = {
+  p: 100, n: 320, b: 330, r: 500, q: 900, k: 20000
+};
 
-// Stockfish engine difficulty configurations
-const DIFFICULTY_CONFIG: Record<Difficulty, EngineConfig> = {
-  easy: { 
-    skillLevel: 5, 
-    depth: 10, 
-    threads: 1, 
-    moveOverhead: 50, 
-    contempt: 30,
-    description: '50% strength (~1500 ELO)'
-  },
-  moderate: { 
-    skillLevel: 12, 
-    depth: 16, 
-    threads: 2, 
-    moveOverhead: 80, 
-    contempt: 15,
-    description: '75% strength (~2000 ELO)'
-  },
-  hard: { 
-    skillLevel: 20, 
-    depth: 22, 
-    threads: 4, 
-    moveOverhead: 120, 
-    hash: 256,
-    description: '100% strength (~3000+ ELO)'
-  }
+// Positional tables
+const PAWN_TABLE = [
+  0,  0,  0,  0,  0,  0,  0,  0,
+  50, 50, 50, 50, 50, 50, 50, 50,
+  10, 10, 20, 30, 30, 20, 10, 10,
+  5,  5, 10, 27, 27, 10,  5,  5,
+  0,  0,  0, 25, 25,  0,  0,  0,
+  5, -5,-10,  0,  0,-10, -5,  5,
+  5, 10, 10,-25,-25, 10, 10,  5,
+  0,  0,  0,  0,  0,  0,  0,  0
+];
+
+const KNIGHT_TABLE = [
+  -50,-40,-30,-30,-30,-30,-40,-50,
+  -40,-20,  0,  5,  5,  0,-20,-40,
+  -30,  5, 10, 15, 15, 10,  5,-30,
+  -30,  0, 15, 20, 20, 15,  0,-30,
+  -30,  5, 15, 20, 20, 15,  5,-30,
+  -30,  0, 10, 15, 15, 10,  0,-30,
+  -40,-20,  0,  0,  0,  0,-20,-40,
+  -50,-40,-20,-30,-30,-20,-40,-50
+];
+
+// Difficulty configurations with 2x scaling per level (10/20, 15/20, 20/20 strength)
+const DIFFICULTY_CONFIG = {
+  easy: { depth: 4, randomness: 0.2, timeLimit: 1500, minDepth: 5 },
+  moderate: { depth: 8, randomness: 0.05, timeLimit: 3500, minDepth: 9 },
+  hard: { depth: 12, randomness: 0, timeLimit: 6000, minDepth: 13 }
 };
 
 export const useBotGame = (initialDifficulty: Difficulty = 'moderate') => {
@@ -52,156 +49,148 @@ export const useBotGame = (initialDifficulty: Difficulty = 'moderate') => {
   const [difficulty, setDifficulty] = useState<Difficulty>(initialDifficulty);
   const [playerWinStreak, setPlayerWinStreak] = useState(0);
   const [playerLossStreak, setPlayerLossStreak] = useState(0);
-  const [engineReady, setEngineReady] = useState(false);
   const { user, refreshProfile } = useAuth();
   const { awardMatchXP } = useXPSystem();
-  const engineRef = useRef<any>(null);
-  const pendingMoveRef = useRef<((move: string) => void) | null>(null);
 
-  // Initialize Stockfish engine via Web Worker
-  useEffect(() => {
-    let initTimeout: NodeJS.Timeout;
-    
-    try {
-      // Create Stockfish worker with new path
-      const engine = new Worker('/stockfish-worker.js');
-      engineRef.current = engine;
+  // Enhanced board evaluation with positional awareness
+  const evaluateBoard = useCallback((game: Chess): number => {
+    let totalEval = 0;
+    const board = game.board();
 
-      // Set up message handler
-      engine.onmessage = (event: MessageEvent) => {
-        const message = event.data as string;
-        
-        // Handle error messages
-        if (message && typeof message === 'object' && (message as any).error) {
-          console.error('Stockfish error:', (message as any).error);
-          return;
-        }
-        
-        console.log('Stockfish:', message);
+    for (let i = 0; i < 8; i++) {
+      for (let j = 0; j < 8; j++) {
+        const square = board[i][j];
+        if (square) {
+          const piece = square.type;
+          const color = square.color;
+          let value = PIECE_VALUES[piece];
 
-        if (message === 'uciok') {
-          console.log('✓ UCI protocol confirmed');
-          engine.postMessage('isready');
-        } else if (message === 'readyok') {
-          setEngineReady(true);
-          console.log('✓ Stockfish engine ready');
-        } else if (message.startsWith('bestmove')) {
-          const match = message.match(/bestmove ([a-h][1-8][a-h][1-8][qrbn]?)/);
-          if (match && pendingMoveRef.current) {
-            console.log('✓ Bot move received:', match[1]);
-            pendingMoveRef.current(match[1]);
-            pendingMoveRef.current = null;
+          // Apply positional bonuses
+          if (piece === 'p') {
+            value += color === 'w' ? PAWN_TABLE[i * 8 + j] : PAWN_TABLE[(7 - i) * 8 + j];
+          } else if (piece === 'n') {
+            value += color === 'w' ? KNIGHT_TABLE[i * 8 + j] : KNIGHT_TABLE[(7 - i) * 8 + j];
           }
-        }
-      };
 
-      // Handle worker errors
-      engine.onerror = (error) => {
-        console.error('Stockfish worker error:', error);
-        // Set ready anyway with fallback
-        setEngineReady(true);
-      };
-
-      // Initialize UCI protocol
-      console.log('Initializing Stockfish UCI protocol...');
-      engine.postMessage('uci');
-      
-      // Fallback: Mark engine as ready after 2 seconds if no response
-      initTimeout = setTimeout(() => {
-        if (!engineReady) {
-          console.warn('Engine timeout, forcing ready state for fallback mode');
-          setEngineReady(true);
+          totalEval += color === 'b' ? value : -value;
         }
-      }, 2000);
-      
-    } catch (error) {
-      console.error('Failed to initialize Stockfish worker:', error);
-      // Still set ready to allow fallback to random moves
-      setEngineReady(true);
+      }
     }
 
-    return () => {
-      clearTimeout(initTimeout);
-      if (engineRef.current) {
-        engineRef.current.terminate();
-      }
-    };
-  }, [engineReady]);
+    // Bonus for mobility (number of legal moves)
+    const mobility = game.moves().length;
+    totalEval += game.turn() === 'b' ? mobility * 10 : -mobility * 10;
 
-  // Configure engine for current difficulty
-  const configureEngine = useCallback(() => {
-    if (!engineRef.current || !engineReady) return;
+    return totalEval;
+  }, []);
 
-    const config = DIFFICULTY_CONFIG[difficulty];
-    const engine = engineRef.current;
-
-    // Reset engine state
-    engine.postMessage('ucinewgame');
-    
-    // Configure skill level for difficulty
-    engine.postMessage(`setoption name Skill Level value ${config.skillLevel}`);
-    engine.postMessage(`setoption name Threads value ${config.threads}`);
-    engine.postMessage(`setoption name Move Overhead value ${config.moveOverhead}`);
-    
-    // Optional settings
-    if (config.contempt !== undefined) {
-      engine.postMessage(`setoption name Contempt value ${config.contempt}`);
-    }
-    
-    if (config.hash !== undefined) {
-      engine.postMessage(`setoption name Hash value ${config.hash}`);
+  // Minimax with alpha-beta pruning and move ordering
+  const minimax = useCallback((
+    game: Chess,
+    depth: number,
+    alpha: number,
+    beta: number,
+    isMaximizing: boolean,
+    startTime: number,
+    timeLimit: number
+  ): number => {
+    // Time limit check
+    if (Date.now() - startTime > timeLimit) {
+      return evaluateBoard(game);
     }
 
-    console.log(`✓ Configured: ${difficulty.toUpperCase()} (Skill ${config.skillLevel}, Depth ${config.depth})`);
-  }, [difficulty, engineReady]);
+    if (depth === 0 || game.isGameOver()) {
+      return evaluateBoard(game);
+    }
 
-  // Get best move from Stockfish
-  const getBotMove = useCallback(async (game: Chess): Promise<string> => {
-    return new Promise((resolve, reject) => {
-      if (!engineRef.current) {
-        reject(new Error('Engine not initialized'));
-        return;
-      }
+    const moves = game.moves({ verbose: true });
 
-      const moves = game.moves();
-      if (moves.length === 0) {
-        reject(new Error('No legal moves available'));
-        return;
-      }
-
-      // If engine not ready, use random move immediately
-      if (!engineReady) {
-        console.warn('⚠️ Engine not ready, using random move');
-        const randomMove = moves[Math.floor(Math.random() * moves.length)];
-        resolve(randomMove);
-        return;
-      }
-
-      const config = DIFFICULTY_CONFIG[difficulty];
-      const fen = game.fen();
-
-      // Configure engine before each move
-      configureEngine();
-
-      // Set up the promise resolver
-      pendingMoveRef.current = resolve;
-
-      // Send UCI commands in correct order
-      console.log(`🤖 Requesting ${difficulty} move (depth ${config.depth}, skill ${config.skillLevel})`);
-      engineRef.current.postMessage(`position fen ${fen}`);
-      engineRef.current.postMessage(`go depth ${config.depth}`);
-
-      // Timeout fallback - return random move after 10 seconds
-      setTimeout(() => {
-        if (pendingMoveRef.current === resolve) {
-          pendingMoveRef.current = null;
-          const randomMove = moves[Math.floor(Math.random() * moves.length)];
-          console.warn('⏱️ Engine timeout, using random move:', randomMove);
-          resolve(randomMove);
-        }
-      }, 10000);
+    // Move ordering: prioritize captures
+    moves.sort((a, b) => {
+      const aCapture = a.captured ? 1 : 0;
+      const bCapture = b.captured ? 1 : 0;
+      return bCapture - aCapture;
     });
-  }, [difficulty, engineReady, configureEngine]);
+
+    if (isMaximizing) {
+      let maxEval = -Infinity;
+      for (const move of moves) {
+        const testGame = new Chess(game.fen());
+        testGame.move(move);
+        const evaluation = minimax(testGame, depth - 1, alpha, beta, false, startTime, timeLimit);
+        maxEval = Math.max(maxEval, evaluation);
+        alpha = Math.max(alpha, evaluation);
+        if (beta <= alpha) break;
+      }
+      return maxEval;
+    } else {
+      let minEval = Infinity;
+      for (const move of moves) {
+        const testGame = new Chess(game.fen());
+        testGame.move(move);
+        const evaluation = minimax(testGame, depth - 1, alpha, beta, true, startTime, timeLimit);
+        minEval = Math.min(minEval, evaluation);
+        beta = Math.min(beta, evaluation);
+        if (beta <= alpha) break;
+      }
+      return minEval;
+    }
+  }, [evaluateBoard]);
+
+  // Get best move with optimized search and retry logic
+  const getBotMove = useCallback(async (game: Chess, retryAttempt: number = 0): Promise<Move> => {
+    const config = DIFFICULTY_CONFIG[difficulty];
+    const moves = game.moves({ verbose: true });
+    
+    // Verify game is not over using Chess.js logic
+    if (moves.length === 0) {
+      // Game is truly over, throw error instead of returning null
+      throw new Error('No legal moves available - game is over');
+    }
+
+    // Apply randomness for lower difficulties
+    if (Math.random() < config.randomness && retryAttempt === 0) {
+      return moves[Math.floor(Math.random() * Math.min(moves.length, 5))];
+    }
+
+    // Increase time limit on retry
+    const timeLimit = retryAttempt > 0 ? config.timeLimit * 2 : config.timeLimit;
+    const searchDepth = retryAttempt > 0 ? Math.max(config.depth, config.minDepth) : config.depth;
+    
+    const startTime = Date.now();
+    let bestMove = moves[0]; // Always initialize with a legal move
+    let bestValue = -Infinity;
+
+    // Move ordering: evaluate captures first
+    moves.sort((a, b) => {
+      const aScore = a.captured ? PIECE_VALUES[a.captured] : 0;
+      const bScore = b.captured ? PIECE_VALUES[b.captured] : 0;
+      return bScore - aScore;
+    });
+
+    for (const move of moves) {
+      // Time limit check
+      if (Date.now() - startTime > timeLimit) break;
+
+      const testGame = new Chess(game.fen());
+      testGame.move(move);
+      const value = minimax(testGame, searchDepth - 1, -Infinity, Infinity, false, startTime, timeLimit);
+
+      if (value > bestValue) {
+        bestValue = value;
+        bestMove = move;
+      }
+    }
+
+    // Safety fallback: if search didn't complete and we haven't retried
+    if (bestValue === -Infinity && retryAttempt === 0) {
+      console.log('Retrying bot move search with increased time...');
+      return getBotMove(game, 1);
+    }
+
+    // Final fallback: always return a legal move (bestMove is initialized with moves[0])
+    return bestMove;
+  }, [difficulty, minimax]);
 
   // Adaptive difficulty adjustment
   const adjustDifficulty = useCallback((playerWon: boolean) => {
@@ -240,69 +229,66 @@ export const useBotGame = (initialDifficulty: Difficulty = 'moderate') => {
     }
   }, [difficulty, playerWinStreak, playerLossStreak]);
 
-  // Bot move execution with smooth animation
+  // Bot move execution
   const makeBotMove = useCallback(async (currentGame: Chess) => {
     // Use Chess.js to verify game status
-    if (currentGame.isGameOver()) return { game: currentGame, move: null };
+    if (currentGame.isGameOver()) return currentGame;
 
     setIsThinking(true);
 
     try {
-      // Small delay to show thinking indicator
-      await new Promise(resolve => setTimeout(resolve, 300));
-      
-      // Get bot move from Stockfish
-      const moveUci = await getBotMove(currentGame);
-      
-      // Parse UCI move (e.g., "e2e4" or "e7e8q")
-      const from = moveUci.substring(0, 2) as Square;
-      const to = moveUci.substring(2, 4) as Square;
-      const promotion = moveUci.length > 4 ? moveUci[4] : undefined;
+      // Get bot move with retry logic
+      const move = await getBotMove(currentGame);
       
       // Apply move
-      const move = currentGame.move({ from, to, promotion });
+      currentGame.move(move);
       
-      if (!move) {
-        console.error('Invalid engine move:', moveUci);
-        return { game: currentGame, move: null };
-      }
-      
-      // Return the move info for animation
-      return { game: currentGame, move };
+      // Highlight bot move
+      requestAnimationFrame(() => {
+        document.querySelectorAll('.highlight-from, .highlight-to').forEach(el => {
+          el.classList.remove('highlight-from', 'highlight-to');
+        });
+        
+        const fromSquare = document.querySelector(`[data-square="${move.from}"]`);
+        const toSquare = document.querySelector(`[data-square="${move.to}"]`);
+        
+        if (fromSquare) fromSquare.classList.add('highlight-from');
+        if (toSquare) toSquare.classList.add('highlight-to');
+      });
     } catch (error) {
       console.error('Bot move error:', error);
-      return { game: currentGame, move: null };
-    } finally {
-      setIsThinking(false);
+      // Game is likely over, do nothing
     }
+
+    setIsThinking(false);
+    return currentGame;
   }, [getBotMove]);
 
-  // Player move handler with smooth animation
+  // Player move handler
   const makePlayerMove = useCallback(async (from: Square, to: Square, promotion?: string): Promise<boolean> => {
     if (isThinking || chess.isGameOver() || chess.turn() !== playerColor[0]) {
       return false;
     }
 
     try {
+      // Remove highlights
+      document.querySelectorAll('.highlight-from, .highlight-to').forEach(el => {
+        el.classList.remove('highlight-from', 'highlight-to');
+      });
+      
       const newGame = new Chess(chess.fen());
       const move = newGame.move({ from, to, promotion: promotion || 'q' });
 
       if (!move) return false;
 
-      // Update game state immediately for smooth UI
       setChess(newGame);
 
       if (newGame.isGameOver()) return true;
 
-      // Bot's turn - run async without blocking UI
+      // Bot's turn
       if (newGame.turn() === 'b') {
-        // Use setTimeout to ensure player move animation completes first
-        setTimeout(async () => {
-          const result = await makeBotMove(newGame);
-          if (result && result.move) {
-            setChess(new Chess(result.game.fen()));
-          }
-        }, 200);
+        const gameAfterBot = await makeBotMove(newGame);
+        setChess(new Chess(gameAfterBot.fen()));
       }
 
       return true;
@@ -318,9 +304,7 @@ export const useBotGame = (initialDifficulty: Difficulty = 'moderate') => {
     // Reset streaks on new game
     setPlayerWinStreak(0);
     setPlayerLossStreak(0);
-    // Reconfigure engine for new game
-    configureEngine();
-  }, [configureEngine]);
+  }, []);
 
   const getGameStatus = useCallback(() => {
     // Use Chess.js logic only, never rely on engine output
@@ -422,14 +406,14 @@ export const useBotGame = (initialDifficulty: Difficulty = 'moderate') => {
         pgn: chess.pgn(),
         fen_history: fenHistory,
         move_timestamps: [],
-        total_moves: chess.history().length,
+        total_moves: history.length,
         start_time: new Date().toISOString(),
         end_time: new Date().toISOString(),
       });
     };
     
     saveGameToHistory();
-  }, [chess.isGameOver(), difficulty, user, playerColor, awardMatchXP, refreshProfile, adjustDifficulty, chess]);
+  }, [chess.isGameOver(), difficulty, user, playerColor, awardMatchXP, refreshProfile, adjustDifficulty]);
 
   return {
     chess,
@@ -440,7 +424,7 @@ export const useBotGame = (initialDifficulty: Difficulty = 'moderate') => {
     isThinking,
     gameStatus: getGameStatus(),
     gameOver: chess.isGameOver(),
-    engineReady,
+    engineReady: true,
     currentDifficulty: difficulty
   };
 };

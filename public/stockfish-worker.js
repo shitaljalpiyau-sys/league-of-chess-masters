@@ -1,58 +1,37 @@
-// Stockfish WASM Worker - Proper UCI Protocol Implementation
-self.importScripts('https://stockfishchess.org/js/stockfish.js');
+// Stockfish WASM Worker - Local Build
+// Load Stockfish from local files
+self.importScripts('/stockfish.js');
 
 let engine = null;
-let isReady = false;
 
-function initEngine() {
-  try {
-    if (typeof STOCKFISH === 'undefined') {
-      postMessage({ error: 'STOCKFISH not loaded from CDN' });
-      return;
-    }
-    
-    engine = STOCKFISH();
-    
-    // Handle messages from Stockfish
-    engine.onmessage = function(msg) {
-      const message = msg.data ? msg.data : msg;
-      postMessage(message);
-      
-      // Track ready state
-      if (message === 'readyok') {
-        isReady = true;
-      }
-    };
-    
-    console.log('Stockfish engine initialized successfully');
-  } catch (err) {
-    console.error('Stockfish init error:', err);
-    postMessage({ error: 'Stockfish init failed: ' + err.message });
-  }
+// Initialize engine
+try {
+  engine = STOCKFISH();
+  console.log('✓ Stockfish WASM engine initialized');
+} catch (e) {
+  console.error('✗ Failed to initialize Stockfish:', e);
+  postMessage({ error: 'Engine initialization failed' });
 }
 
-// Initialize engine on load
-initEngine();
+// Forward all messages from Stockfish to main thread
+if (engine) {
+  engine.onmessage = function(msg) {
+    const text = msg.data ? msg.data : msg;
+    postMessage(text);
+  };
+}
 
 // Handle messages from main thread
 self.onmessage = function(e) {
-  const command = e.data;
-  
-  // Reinitialize if needed
-  if (!engine) {
-    initEngine();
-  }
-  
-  // Forward command to engine
-  if (engine && typeof engine.postMessage === 'function') {
-    engine.postMessage(command);
+  if (engine) {
+    engine.postMessage(e.data);
   } else {
     postMessage({ error: 'Engine not ready' });
   }
 };
 
-// Error handling
+// Global error handler
 self.onerror = function(err) {
   console.error('Worker error:', err);
-  postMessage({ error: err.message || 'Unknown worker error' });
+  postMessage({ error: err.message || 'Unknown error' });
 };

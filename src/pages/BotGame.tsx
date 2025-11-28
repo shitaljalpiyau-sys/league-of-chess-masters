@@ -19,7 +19,7 @@ const BotGame = () => {
   const is3DMode = userPreferences?.is_3d_mode || false;
   const isMobile = useIsMobile();
   
-  const { chess, playerColor, isPlayerTurn, makeMove, resetGame, isThinking, gameStatus } = useBotGame(difficulty);
+  const { chess, playerColor, isPlayerTurn, makeMove, resetGame, isThinking, gameStatus, engineReady } = useBotGame(difficulty);
   
   const [selectedSquare, setSelectedSquare] = useState<Square | null>(null);
   const [legalMoves, setLegalMoves] = useState<Square[]>([]);
@@ -165,7 +165,9 @@ const BotGame = () => {
             <Card className="p-3 bg-card/90 backdrop-blur-sm border-border">
               <div className="flex items-center gap-2">
                 <Brain className="h-5 w-5 text-primary animate-pulse" />
-                <p className="text-sm text-muted-foreground">Bot is thinking...</p>
+                <p className="text-sm text-muted-foreground">
+                  {!engineReady ? 'Initializing AI...' : 'Bot is thinking...'}
+                </p>
               </div>
             </Card>
           </div>
@@ -321,7 +323,9 @@ const BotGame = () => {
             <div className="text-center">
               <div className="flex items-center justify-center gap-2">
                 <Brain className="h-5 w-5 text-primary animate-pulse" />
-                <p className="text-sm text-muted-foreground">Bot is thinking...</p>
+                <p className="text-sm text-muted-foreground">
+                  {!engineReady ? 'Initializing AI...' : 'Bot is thinking...'}
+                </p>
               </div>
             </div>
           </Card>

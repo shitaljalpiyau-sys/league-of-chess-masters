@@ -37,15 +37,18 @@ const KNIGHT_TABLE = [
 
 // Difficulty configurations with optimized parameters
 const DIFFICULTY_CONFIG = {
-  easy: { depth: 2, randomness: 0.4, timeLimit: 600, minDepth: 2 },
-  moderate: { depth: 3, randomness: 0.15, timeLimit: 1200, minDepth: 3 },
-  hard: { depth: 4, randomness: 0.05, timeLimit: 2000, minDepth: 4 }
+  easy: { depth: 2, randomness: 0.4, timeLimit: 1500, minDepth: 3 },
+  moderate: { depth: 3, randomness: 0.15, timeLimit: 2000, minDepth: 4 },
+  hard: { depth: 4, randomness: 0.05, timeLimit: 5000, minDepth: 5 }
 };
 
-export const useBotGame = (difficulty: Difficulty = 'moderate') => {
+export const useBotGame = (initialDifficulty: Difficulty = 'moderate') => {
   const [chess, setChess] = useState(new Chess());
   const [playerColor] = useState<'white' | 'black'>('white');
   const [isThinking, setIsThinking] = useState(false);
+  const [difficulty, setDifficulty] = useState<Difficulty>(initialDifficulty);
+  const [playerWinStreak, setPlayerWinStreak] = useState(0);
+  const [playerLossStreak, setPlayerLossStreak] = useState(0);
   const { user, refreshProfile } = useAuth();
   const { awardMatchXP } = useXPSystem();
 
@@ -135,17 +138,14 @@ export const useBotGame = (difficulty: Difficulty = 'moderate') => {
   }, [evaluateBoard]);
 
   // Get best move with optimized search and retry logic
-  const getBotMove = useCallback(async (game: Chess, retryAttempt: number = 0): Promise<Move | null> => {
+  const getBotMove = useCallback(async (game: Chess, retryAttempt: number = 0): Promise<Move> => {
     const config = DIFFICULTY_CONFIG[difficulty];
     const moves = game.moves({ verbose: true });
     
     // Verify game is not over using Chess.js logic
     if (moves.length === 0) {
-      // Only return null if truly no legal moves
-      if (game.isCheckmate() || game.isStalemate() || game.isDraw()) {
-        return null;
-      }
-      return null;
+      // Game is truly over, throw error instead of returning null
+      throw new Error('No legal moves available - game is over');
     }
 
     // Apply randomness for lower difficulties
@@ -158,7 +158,7 @@ export const useBotGame = (difficulty: Difficulty = 'moderate') => {
     const searchDepth = retryAttempt > 0 ? Math.max(config.depth, config.minDepth) : config.depth;
     
     const startTime = Date.now();
-    let bestMove = moves[0];
+    let bestMove = moves[0]; // Always initialize with a legal move
     let bestValue = -Infinity;
 
     // Move ordering: evaluate captures first
@@ -182,13 +182,52 @@ export const useBotGame = (difficulty: Difficulty = 'moderate') => {
       }
     }
 
-    // Safety fallback: if no valid move found and haven't retried, retry with more time
-    if (!bestMove && retryAttempt === 0) {
+    // Safety fallback: if search didn't complete and we haven't retried
+    if (bestValue === -Infinity && retryAttempt === 0) {
+      console.log('Retrying bot move search with increased time...');
       return getBotMove(game, 1);
     }
 
+    // Final fallback: always return a legal move (bestMove is initialized with moves[0])
     return bestMove;
   }, [difficulty, minimax]);
+
+  // Adaptive difficulty adjustment
+  const adjustDifficulty = useCallback((playerWon: boolean) => {
+    if (playerWon) {
+      const newStreak = playerWinStreak + 1;
+      setPlayerWinStreak(newStreak);
+      setPlayerLossStreak(0);
+      
+      // Increase difficulty after 2 wins in a row
+      if (newStreak >= 2) {
+        if (difficulty === 'easy') {
+          setDifficulty('moderate');
+          console.log('Adaptive difficulty: Upgraded to MODERATE');
+        } else if (difficulty === 'moderate') {
+          setDifficulty('hard');
+          console.log('Adaptive difficulty: Upgraded to HARD');
+        }
+        setPlayerWinStreak(0);
+      }
+    } else {
+      const newStreak = playerLossStreak + 1;
+      setPlayerLossStreak(newStreak);
+      setPlayerWinStreak(0);
+      
+      // Decrease difficulty after 2 losses in a row
+      if (newStreak >= 2) {
+        if (difficulty === 'hard') {
+          setDifficulty('moderate');
+          console.log('Adaptive difficulty: Downgraded to MODERATE');
+        } else if (difficulty === 'moderate') {
+          setDifficulty('easy');
+          console.log('Adaptive difficulty: Downgraded to EASY');
+        }
+        setPlayerLossStreak(0);
+      }
+    }
+  }, [difficulty, playerWinStreak, playerLossStreak]);
 
   // Bot move execution
   const makeBotMove = useCallback(async (currentGame: Chess) => {
@@ -197,32 +236,28 @@ export const useBotGame = (difficulty: Difficulty = 'moderate') => {
 
     setIsThinking(true);
 
-    // Get bot move with retry logic
-    const move = await getBotMove(currentGame);
-    
-    if (move) {
-      try {
-        // Apply move
-        currentGame.move(move);
-        
-        // Highlight bot move
-        requestAnimationFrame(() => {
-          document.querySelectorAll('.highlight-from, .highlight-to').forEach(el => {
-            el.classList.remove('highlight-from', 'highlight-to');
-          });
-          
-          const fromSquare = document.querySelector(`[data-square="${move.from}"]`);
-          const toSquare = document.querySelector(`[data-square="${move.to}"]`);
-          
-          if (fromSquare) fromSquare.classList.add('highlight-from');
-          if (toSquare) toSquare.classList.add('highlight-to');
+    try {
+      // Get bot move with retry logic
+      const move = await getBotMove(currentGame);
+      
+      // Apply move
+      currentGame.move(move);
+      
+      // Highlight bot move
+      requestAnimationFrame(() => {
+        document.querySelectorAll('.highlight-from, .highlight-to').forEach(el => {
+          el.classList.remove('highlight-from', 'highlight-to');
         });
-      } catch (error) {
-        console.error('Bot move error:', error);
-      }
-    } else {
-      // If no move found, verify game is actually over
-      console.log('No bot move found. Game over:', currentGame.isGameOver());
+        
+        const fromSquare = document.querySelector(`[data-square="${move.from}"]`);
+        const toSquare = document.querySelector(`[data-square="${move.to}"]`);
+        
+        if (fromSquare) fromSquare.classList.add('highlight-from');
+        if (toSquare) toSquare.classList.add('highlight-to');
+      });
+    } catch (error) {
+      console.error('Bot move error:', error);
+      // Game is likely over, do nothing
     }
 
     setIsThinking(false);
@@ -266,6 +301,9 @@ export const useBotGame = (difficulty: Difficulty = 'moderate') => {
   const resetGame = useCallback(() => {
     setChess(new Chess());
     setIsThinking(false);
+    // Reset streaks on new game
+    setPlayerWinStreak(0);
+    setPlayerLossStreak(0);
   }, []);
 
   const getGameStatus = useCallback(() => {
@@ -324,6 +362,9 @@ export const useBotGame = (difficulty: Difficulty = 'moderate') => {
       
       await refreshProfile();
       
+      // Adjust difficulty based on result
+      adjustDifficulty(playerWon);
+      
       setTimeout(() => {
         if (playerWon) {
           awardMatchXP('win', { fastCheckmate: isFastCheckmate });
@@ -372,7 +413,7 @@ export const useBotGame = (difficulty: Difficulty = 'moderate') => {
     };
     
     saveGameToHistory();
-  }, [chess.isGameOver(), difficulty, user, playerColor, awardMatchXP, refreshProfile]);
+  }, [chess.isGameOver(), difficulty, user, playerColor, awardMatchXP, refreshProfile, adjustDifficulty]);
 
   return {
     chess,
@@ -383,6 +424,7 @@ export const useBotGame = (difficulty: Difficulty = 'moderate') => {
     isThinking,
     gameStatus: getGameStatus(),
     gameOver: chess.isGameOver(),
-    engineReady: true
+    engineReady: true,
+    currentDifficulty: difficulty
   };
 };

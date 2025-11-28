@@ -1,13 +1,37 @@
-import { Users, UserPlus, Check, X, Crown, MessageCircle } from "lucide-react";
+import { Users, UserPlus, Check, X, Crown, MessageCircle, Swords, Circle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useFriends } from "@/hooks/useFriends";
 import { useNavigate } from "react-router-dom";
+import { usePresence } from "@/hooks/usePresence";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
+import { toast } from "sonner";
 
 const Friends = () => {
   const { friends, friendRequests, acceptFriendRequest, rejectFriendRequest, removeFriend } = useFriends();
+  const { profile } = useAuth();
   const navigate = useNavigate();
+  
+  const friendIds = friends.map(f => f.id);
+  const { onlineUsers } = usePresence(friendIds);
+
+  const handleChallenge = async (friendId: string) => {
+    if (!profile) return;
+
+    const { error } = await supabase.from("challenges").insert({
+      challenger_id: profile.id,
+      challenged_id: friendId,
+      time_control: "10+5",
+    });
+
+    if (error) {
+      toast.error("Failed to send challenge");
+    } else {
+      toast.success("Challenge sent!");
+    }
+  };
 
   return (
     <div className="min-h-screen pb-20 pt-20 px-6">
@@ -94,44 +118,66 @@ const Friends = () => {
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {friends.map((friend) => (
-                  <Card key={friend.id} className="bg-card-dark">
-                    <CardContent className="p-4">
-                      <div 
-                        className="flex items-center gap-3 mb-3 cursor-pointer hover:opacity-80"
-                        onClick={() => navigate(`/profile/${friend.id}`)}
-                      >
-                        <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center">
-                          <Crown className="h-6 w-6 text-primary" />
-                        </div>
-                        <div className="flex-1">
-                          <p className="font-bold">{friend.username}</p>
-                          <div className="flex items-center gap-2 mt-1">
-                            <Badge variant="outline" className="text-xs">
-                              Class {friend.class}
-                            </Badge>
-                            <span className="text-xs text-muted-foreground">
-                              {friend.rating}
-                            </span>
+                {friends.map((friend) => {
+                  const isOnline = onlineUsers.has(friend.id);
+                  return (
+                    <Card key={friend.id} className="bg-card-dark">
+                      <CardContent className="p-4">
+                        <div 
+                          className="flex items-center gap-3 mb-3 cursor-pointer hover:opacity-80"
+                          onClick={() => navigate(`/profile/${friend.id}`)}
+                        >
+                          <div className="relative">
+                            <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center">
+                              <Crown className="h-6 w-6 text-primary" />
+                            </div>
+                            <Circle
+                              className={`absolute -bottom-1 -right-1 h-3 w-3 rounded-full border-2 border-background ${
+                                isOnline ? "fill-green-500 text-green-500" : "fill-gray-400 text-gray-400"
+                              }`}
+                            />
+                          </div>
+                          <div className="flex-1">
+                            <p className="font-bold flex items-center gap-2">
+                              {friend.username}
+                              <span className={`text-xs ${isOnline ? "text-green-500" : "text-gray-400"}`}>
+                                {isOnline ? "Online" : "Offline"}
+                              </span>
+                            </p>
+                            <div className="flex items-center gap-2 mt-1">
+                              <Badge variant="outline" className="text-xs">
+                                Class {friend.class}
+                              </Badge>
+                              <span className="text-xs text-muted-foreground">
+                                {friend.rating}
+                              </span>
+                            </div>
                           </div>
                         </div>
-                      </div>
-                      <div className="flex gap-2">
-                        <Button size="sm" variant="outline" className="flex-1">
-                          <MessageCircle className="h-4 w-4 mr-1" />
-                          Message
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => removeFriend(friend.id)}
-                        >
-                          <X className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
+                        <div className="grid grid-cols-3 gap-2">
+                          <Button size="sm" variant="outline" onClick={() => navigate(`/social`)}>
+                            <MessageCircle className="h-4 w-4" />
+                          </Button>
+                          <Button 
+                            size="sm" 
+                            variant="outline"
+                            onClick={() => handleChallenge(friend.id)}
+                            className="hover:bg-primary/10 hover:text-primary"
+                          >
+                            <Swords className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => removeFriend(friend.id)}
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
               </div>
             )}
           </CardContent>

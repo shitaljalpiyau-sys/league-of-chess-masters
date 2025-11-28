@@ -15,10 +15,11 @@ import {
 } from "@/components/ui/dialog";
 import { 
   Users, Crown, Eye, Swords, MessageCircle, UserPlus, 
-  Trophy, Target, TrendingUp, Lock, Play, Check, X, Clock 
+  Trophy, Target, TrendingUp, Lock, Play, Check, X, Clock, Sparkles 
 } from "lucide-react";
 import { toast } from "sonner";
 import { MatchHistory } from "@/components/MatchHistory";
+import { getTierForLevel } from "@/utils/xpSystem";
 
 interface ProfileData {
   id: string;
@@ -29,6 +30,9 @@ interface ProfileData {
   games_played: number;
   games_won: number;
   created_at: string;
+  xp: number;
+  level: number;
+  avatar_url: string | null;
 }
 
 const PublicProfile = () => {
@@ -270,6 +274,7 @@ const PublicProfile = () => {
   const winRate = profile.games_played > 0 
     ? Math.round((profile.games_won / profile.games_played) * 100) 
     : 0;
+  const tier = getTierForLevel(profile.level);
 
   const isOwnProfile = user?.id === userId;
   const canSpectate = activeMatchId;
@@ -290,6 +295,10 @@ const PublicProfile = () => {
                   <Badge className="bg-primary/10 text-primary">
                     CLASS {profile.class}
                   </Badge>
+                  <Badge className={`bg-gradient-to-br ${tier.badgeGradient} text-white`}>
+                    <Sparkles className="h-3 w-3 mr-1" />
+                    {tier.name} • Level {profile.level}
+                  </Badge>
                   {activeMatchId && (
                     <Badge variant="destructive" className="animate-pulse">
                       IN MATCH
@@ -297,7 +306,7 @@ const PublicProfile = () => {
                   )}
                 </div>
                 <p className="text-muted-foreground mb-4">
-                  Rating: {profile.rating} • Points: {profile.points}
+                  XP: {profile.xp} • Rating: {profile.rating} • Points: {profile.points}
                 </p>
                 
                 {!isOwnProfile && user && (
@@ -388,7 +397,12 @@ const PublicProfile = () => {
 
             {/* Statistics */}
             <Separator className="my-6" />
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+              <div>
+                <Sparkles className="h-5 w-5 text-primary mb-2" />
+                <div className="text-2xl font-bold font-rajdhani">{profile.xp}</div>
+                <div className="text-xs text-muted-foreground">Total XP</div>
+              </div>
               <div>
                 <Target className="h-5 w-5 text-primary mb-2" />
                 <div className="text-2xl font-bold font-rajdhani">{profile.games_played}</div>

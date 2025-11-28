@@ -229,66 +229,59 @@ export const useBotGame = (initialDifficulty: Difficulty = 'moderate') => {
     }
   }, [difficulty, playerWinStreak, playerLossStreak]);
 
-  // Bot move execution
+  // Bot move execution with smooth animation
   const makeBotMove = useCallback(async (currentGame: Chess) => {
     // Use Chess.js to verify game status
-    if (currentGame.isGameOver()) return currentGame;
+    if (currentGame.isGameOver()) return { game: currentGame, move: null };
 
     setIsThinking(true);
 
     try {
+      // Small delay to show thinking indicator
+      await new Promise(resolve => setTimeout(resolve, 300));
+      
       // Get bot move with retry logic
       const move = await getBotMove(currentGame);
       
       // Apply move
       currentGame.move(move);
       
-      // Highlight bot move
-      requestAnimationFrame(() => {
-        document.querySelectorAll('.highlight-from, .highlight-to').forEach(el => {
-          el.classList.remove('highlight-from', 'highlight-to');
-        });
-        
-        const fromSquare = document.querySelector(`[data-square="${move.from}"]`);
-        const toSquare = document.querySelector(`[data-square="${move.to}"]`);
-        
-        if (fromSquare) fromSquare.classList.add('highlight-from');
-        if (toSquare) toSquare.classList.add('highlight-to');
-      });
+      // Return the move info for animation
+      return { game: currentGame, move };
     } catch (error) {
       console.error('Bot move error:', error);
-      // Game is likely over, do nothing
+      return { game: currentGame, move: null };
+    } finally {
+      setIsThinking(false);
     }
-
-    setIsThinking(false);
-    return currentGame;
   }, [getBotMove]);
 
-  // Player move handler
+  // Player move handler with smooth animation
   const makePlayerMove = useCallback(async (from: Square, to: Square, promotion?: string): Promise<boolean> => {
     if (isThinking || chess.isGameOver() || chess.turn() !== playerColor[0]) {
       return false;
     }
 
     try {
-      // Remove highlights
-      document.querySelectorAll('.highlight-from, .highlight-to').forEach(el => {
-        el.classList.remove('highlight-from', 'highlight-to');
-      });
-      
       const newGame = new Chess(chess.fen());
       const move = newGame.move({ from, to, promotion: promotion || 'q' });
 
       if (!move) return false;
 
+      // Update game state immediately for smooth UI
       setChess(newGame);
 
       if (newGame.isGameOver()) return true;
 
-      // Bot's turn
+      // Bot's turn - run async without blocking UI
       if (newGame.turn() === 'b') {
-        const gameAfterBot = await makeBotMove(newGame);
-        setChess(new Chess(gameAfterBot.fen()));
+        // Use setTimeout to ensure player move animation completes first
+        setTimeout(async () => {
+          const result = await makeBotMove(newGame);
+          if (result && result.move) {
+            setChess(new Chess(result.game.fen()));
+          }
+        }, 200);
       }
 
       return true;

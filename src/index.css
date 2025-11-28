@@ -1,3 +1,6 @@
+/* Google Fonts Import */
+@import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -428,9 +431,6 @@ All colors MUST be HSL.
       inset 0 1px 0 rgba(255, 255, 255, 0.08);
   }
 }
-
-/* Google Fonts Import */
-@import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap');
 
 /* Chess piece move animation with 3D effect */
 @keyframes move-piece {

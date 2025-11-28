@@ -101,12 +101,12 @@ export const UniversalChessBoard = ({
                   } as React.CSSProperties}
                   className={`
                     w-full h-full flex items-center justify-center cursor-pointer
-                    relative transition-all duration-300 ease-out
+                    relative transition-all duration-200 ease-out
                     ${isLight ? 'chess-square-light' : 'chess-square-dark'}
-                    ${isSelected ? 'ring-4 ring-inset ring-primary scale-[1.08] z-10' : ''}
-                    ${isOpponentHighlight ? 'after:absolute after:inset-0 after:bg-red-500/35 after:shadow-[inset_0_0_30px_rgba(239,68,68,0.8),0_0_30px_rgba(239,68,68,0.7)] after:rounded-md after:z-20' : isLastMoveSquare ? 'after:absolute after:inset-0 after:bg-blue-500/35 after:shadow-[inset_0_0_30px_rgba(59,139,255,0.8),0_0_30px_rgba(59,139,255,0.7)] after:rounded-md after:z-20' : ''}
-                    ${isAnimating ? 'animate-[move-piece_0.5s_ease-out]' : ''}
-                    ${isPlayerTurn ? 'hover:brightness-110 hover:scale-105' : 'cursor-not-allowed opacity-70'}
+                    ${isSelected ? 'ring-4 ring-inset ring-primary scale-[1.05] z-10' : ''}
+                    ${isOpponentHighlight ? 'after:absolute after:inset-0 after:bg-red-500/40 after:shadow-[inset_0_0_30px_rgba(239,68,68,0.9),0_0_35px_rgba(239,68,68,0.8)] after:rounded-md after:z-20 after:animate-pulse' : isLastMoveSquare ? 'after:absolute after:inset-0 after:bg-blue-500/40 after:shadow-[inset_0_0_30px_rgba(59,139,255,0.9),0_0_35px_rgba(59,139,255,0.8)] after:rounded-md after:z-20 after:animate-pulse' : ''}
+                    ${isAnimating ? 'animate-[move-piece_0.25s_ease-out]' : ''}
+                    ${isPlayerTurn ? 'hover:brightness-110 hover:scale-[1.02]' : 'cursor-not-allowed'}
                     ${isLegalMove && hoveredSquare === square ? 'animate-[square-glow_1s_ease-in-out_infinite]' : ''}
                     ${isPremium ? 'hover:shadow-xl hover:shadow-primary/40' : ''}
                   `}
@@ -115,13 +115,16 @@ export const UniversalChessBoard = ({
                   {piece && (
                     <div 
                       className={`
-                        w-[85%] h-[85%] chess-piece select-none pointer-events-none transition-all duration-500 ease-out
+                        w-[85%] h-[85%] chess-piece select-none pointer-events-none transition-all duration-200 ease-out
                         ${piece.color === 'w' ? 'chess-piece-white' : 'chess-piece-black'}
-                        ${isSelected ? 'chess-piece-selected' : ''}
-                        ${animatingPiece?.from === square ? (animatingPiece.captured ? 'animate-[piece-capture_0.5s_ease-out_forwards]' : 'opacity-0 scale-50') : 'opacity-100 scale-100'}
-                        ${animatingPiece?.to === square ? 'animate-[move-piece_0.5s_ease-out]' : ''}
-                        ${hoveredSquare === square && isPlayerTurn ? 'scale-110 brightness-110' : ''}
+                        ${isSelected ? 'chess-piece-selected scale-105' : ''}
+                        ${animatingPiece?.from === square ? (animatingPiece.captured ? 'animate-[piece-capture_0.25s_ease-out_forwards]' : 'opacity-0 scale-75') : 'opacity-100 scale-100'}
+                        ${animatingPiece?.to === square ? 'animate-[piece-slide-in_0.25s_ease-out]' : ''}
+                        ${hoveredSquare === square && isPlayerTurn ? 'scale-[1.15] brightness-110' : ''}
                       `}
+                      style={{
+                        filter: isSelected ? 'drop-shadow(0 0 12px rgba(163, 228, 77, 0.7))' : undefined
+                      }}
                     >
                       <ChessPieceSVG type={piece.type} color={piece.color} />
                     </div>

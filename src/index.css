@@ -5,6 +5,41 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Chess piece animations */
+@keyframes piece-slide-in {
+  0% {
+    transform: scale(0.8) translateY(-10px);
+    opacity: 0.5;
+  }
+  100% {
+    transform: scale(1) translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes piece-capture {
+  0% {
+    transform: scale(1) rotate(0deg);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(0.5) rotate(45deg);
+    opacity: 0;
+  }
+}
+
+@keyframes move-piece {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.05);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
 /* Futuristic Global Animations */
 @keyframes particle-float {
   0%, 100% { transform: translateY(0) translateX(0); opacity: 0.3; }

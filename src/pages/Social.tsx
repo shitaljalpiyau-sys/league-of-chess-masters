@@ -1,5 +1,5 @@
-import { useState, useEffect } from "react";
-import { Users, UserPlus, Check, X, MessageCircle, Crown, Send } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
+import { Users, UserPlus, Check, X, MessageCircle, Crown, Send, Circle, Loader2, MoreVertical, Ban } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -12,6 +12,20 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { usePresence } from "@/hooks/usePresence";
+import { useTypingIndicator } from "@/hooks/useTypingIndicator";
+import { ChatBubble } from "@/components/ChatBubble";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 interface Message {
   id: string;
@@ -20,10 +34,33 @@ interface Message {
   message: string;
   created_at: string;
   read: boolean;
+  deleted_for_sender: boolean;
+  deleted_for_receiver: boolean;
   sender: {
     username: string;
     avatar_url: string | null;
   };
+  reactions?: Reaction[];
+}
+
+interface Reaction {
+  id: string;
+  message_id: string;
+  reactor_id: string;
+  emoji: string;
+}
+
+interface Friend {
+  id: string;
+  username: string;
+  class: string;
+  rating: number;
+}
+
+interface FriendGroup {
+  groupName: string;
+  friends: Friend[];
+  isOpen: boolean;
 }
 
 interface ChatRoom {
@@ -44,6 +81,41 @@ const Social = () => {
   const [messageInput, setMessageInput] = useState("");
   const [messages, setMessages] = useState<Message[]>([]);
   const [chatRooms, setChatRooms] = useState<ChatRoom[]>([]);
+  const [blockedUsers, setBlockedUsers] = useState<Set<string>>(new Set());
+  const [friendGroups, setFriendGroups] = useState<Map<string, string>>(new Map());
+  const [groupStates, setGroupStates] = useState<Record<string, boolean>>({
+    "Close Friends": true,
+    "Rivals": true,
+    "Training Partners": true,
+    "Others": true,
+  });
+  const chatEndRef = useRef<HTMLDivElement>(null);
+  const messageInputRef = useRef<HTMLInputElement>(null);
+
+  // Get friend IDs for presence tracking
+  const friendIds = friends.map(f => f.id);
+  const { onlineUsers } = usePresence(friendIds);
+
+  // Get chat room ID for typing indicator
+  const getChatRoomId = (friendId: string) => {
+    if (!user) return "";
+    return [user.id, friendId].sort().join("_");
+  };
+
+  const roomId = selectedFriend ? getChatRoomId(selectedFriend) : "";
+  const { typingUsers, startTyping, stopTyping } = useTypingIndicator(roomId, user?.id || "");
+
+  // Load blocked users
+  useEffect(() => {
+    if (!user) return;
+    loadBlockedUsers();
+  }, [user]);
+
+  // Load friend groups
+  useEffect(() => {
+    if (!user) return;
+    loadFriendGroups();
+  }, [user, friends]);
 
   // Load all messages and organize into chat rooms
   useEffect(() => {
@@ -75,6 +147,38 @@ const Social = () => {
     };
   }, [user]);
 
+  // Auto-scroll to bottom when new messages arrive
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages, selectedFriend]);
+
+  const loadBlockedUsers = async () => {
+    if (!user) return;
+    const { data } = await supabase
+      .from("blocks")
+      .select("blocked_user_id")
+      .eq("user_id", user.id);
+    
+    if (data) {
+      setBlockedUsers(new Set(data.map(b => b.blocked_user_id)));
+    }
+  };
+
+  const loadFriendGroups = async () => {
+    if (!user || friends.length === 0) return;
+    
+    const { data } = await supabase
+      .from("friend_groups")
+      .select("friend_id, group_name")
+      .eq("user_id", user.id)
+      .in("friend_id", friends.map(f => f.id));
+    
+    if (data) {
+      const groupMap = new Map(data.map(g => [g.friend_id, g.group_name]));
+      setFriendGroups(groupMap);
+    }
+  };
+
   const loadMessages = async () => {
     if (!user) return;
 
@@ -87,14 +191,28 @@ const Social = () => {
         message,
         created_at,
         read,
+        deleted_for_sender,
+        deleted_for_receiver,
         sender:profiles!direct_messages_sender_id_fkey(username, avatar_url)
       `)
       .or(`receiver_id.eq.${user.id},sender_id.eq.${user.id}`)
       .order('created_at', { ascending: true });
 
     if (!error && data) {
-      setMessages(data as any);
-      organizeChatRooms(data as any);
+      // Load reactions for messages
+      const messageIds = data.map(m => m.id);
+      const { data: reactionsData } = await supabase
+        .from('message_reactions')
+        .select('*')
+        .in('message_id', messageIds);
+
+      const messagesWithReactions = data.map(msg => ({
+        ...msg,
+        reactions: reactionsData?.filter(r => r.message_id === msg.id) || []
+      }));
+
+      setMessages(messagesWithReactions as any);
+      organizeChatRooms(messagesWithReactions as any);
     }
   };
 
@@ -105,9 +223,19 @@ const Social = () => {
     
     allMessages.forEach(msg => {
       const friendId = msg.sender_id === user.id ? msg.receiver_id : msg.sender_id;
-      const friend = friends.find(f => f.id === friendId);
       
+      // Skip if user is blocked
+      if (blockedUsers.has(friendId)) return;
+      
+      const friend = friends.find(f => f.id === friendId);
       if (!friend) return;
+
+      // Check if message is deleted for current user
+      const isDeletedForMe = msg.sender_id === user.id 
+        ? msg.deleted_for_sender 
+        : msg.deleted_for_receiver;
+      
+      if (isDeletedForMe) return;
 
       if (!roomsMap.has(friendId)) {
         roomsMap.set(friendId, {
@@ -135,6 +263,14 @@ const Social = () => {
 
   const sendMessage = async () => {
     if (!user || !selectedFriend || !messageInput.trim()) return;
+    
+    // Check if friend is blocked
+    if (blockedUsers.has(selectedFriend)) {
+      toast.error("Cannot send message to blocked user");
+      return;
+    }
+
+    stopTyping();
 
     const { error } = await supabase
       .from('direct_messages')
@@ -152,6 +288,107 @@ const Social = () => {
     }
   };
 
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setMessageInput(e.target.value);
+    if (e.target.value.length > 0) {
+      startTyping();
+    } else {
+      stopTyping();
+    }
+  };
+
+  const handleReaction = async (messageId: string, emoji: string) => {
+    if (!user) return;
+
+    const { error } = await supabase
+      .from('message_reactions')
+      .insert({
+        message_id: messageId,
+        reactor_id: user.id,
+        emoji,
+      });
+
+    if (!error) {
+      loadMessages();
+    }
+  };
+
+  const handleDeleteMessage = async (messageId: string) => {
+    if (!user) return;
+
+    const message = messages.find(m => m.id === messageId);
+    if (!message) return;
+
+    const isOwnMessage = message.sender_id === user.id;
+
+    await supabase
+      .from('direct_messages')
+      .update({
+        deleted_for_sender: isOwnMessage ? true : message.deleted_for_sender,
+        deleted_for_receiver: !isOwnMessage ? true : message.deleted_for_receiver,
+        deleted_at: new Date().toISOString(),
+      })
+      .eq('id', messageId);
+
+    loadMessages();
+    toast.success("Message deleted");
+  };
+
+  const handleBlockUser = async (friendId: string) => {
+    if (!user) return;
+
+    const { error } = await supabase
+      .from('blocks')
+      .insert({
+        user_id: user.id,
+        blocked_user_id: friendId,
+      });
+
+    if (!error) {
+      setBlockedUsers(prev => new Set([...prev, friendId]));
+      setSelectedFriend(null);
+      toast.success("User blocked");
+      loadMessages();
+    }
+  };
+
+  const handleUnblockUser = async (friendId: string) => {
+    if (!user) return;
+
+    const { error } = await supabase
+      .from('blocks')
+      .delete()
+      .eq('user_id', user.id)
+      .eq('blocked_user_id', friendId);
+
+    if (!error) {
+      setBlockedUsers(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(friendId);
+        return newSet;
+      });
+      toast.success("User unblocked");
+      loadMessages();
+    }
+  };
+
+  const handleChangeFriendGroup = async (friendId: string, groupName: string) => {
+    if (!user) return;
+
+    await supabase
+      .from('friend_groups')
+      .upsert({
+        user_id: user.id,
+        friend_id: friendId,
+        group_name: groupName,
+      }, {
+        onConflict: 'user_id,friend_id'
+      });
+
+    loadFriendGroups();
+    toast.success(`Moved to ${groupName}`);
+  };
+
   const markAsRead = async (friendId: string) => {
     if (!user) return;
 
@@ -162,13 +399,36 @@ const Social = () => {
       .eq('sender_id', friendId);
   };
 
-  const selectedFriendMessages = messages.filter(
-    msg => 
-      (msg.sender_id === user?.id && msg.receiver_id === selectedFriend) ||
-      (msg.sender_id === selectedFriend && msg.receiver_id === user?.id)
-  );
+  const selectedFriendMessages = messages.filter(msg => {
+    if (!user || !selectedFriend) return false;
+    
+    const isInConversation = 
+      (msg.sender_id === user.id && msg.receiver_id === selectedFriend) ||
+      (msg.sender_id === selectedFriend && msg.receiver_id === user.id);
+    
+    if (!isInConversation) return false;
+
+    // Filter out deleted messages
+    const isDeletedForMe = msg.sender_id === user.id 
+      ? msg.deleted_for_sender 
+      : msg.deleted_for_receiver;
+    
+    return !isDeletedForMe;
+  });
 
   const selectedFriendData = friends.find(f => f.id === selectedFriend);
+  const isSelectedFriendOnline = selectedFriend ? onlineUsers.has(selectedFriend) : false;
+  const isSelectedFriendTyping = typingUsers.has(selectedFriend || "");
+
+  // Organize friends into groups
+  const organizedFriends = ["Close Friends", "Rivals", "Training Partners", "Others"].map(groupName => ({
+    groupName,
+    friends: friends.filter(f => {
+      const group = friendGroups.get(f.id) || "Others";
+      return group === groupName && !blockedUsers.has(f.id);
+    }),
+    isOpen: groupStates[groupName] ?? true,
+  }));
 
   return (
     <div className="min-h-screen pb-20 pt-20 px-6">
@@ -221,12 +481,19 @@ const Social = () => {
                                 : 'hover:bg-card-dark'
                             }`}
                           >
-                            <Avatar className="h-10 w-10 border-2 border-primary/30">
-                              <AvatarImage src={room.friendAvatar || undefined} />
-                              <AvatarFallback className="bg-primary/10 text-primary">
-                                {room.friendUsername[0]}
-                              </AvatarFallback>
-                            </Avatar>
+                            <div className="relative">
+                              <Avatar className="h-10 w-10 border-2 border-primary/30">
+                                <AvatarImage src={room.friendAvatar || undefined} />
+                                <AvatarFallback className="bg-primary/10 text-primary">
+                                  {room.friendUsername[0]}
+                                </AvatarFallback>
+                              </Avatar>
+                              <Circle
+                                className={`absolute -bottom-1 -right-1 h-3 w-3 rounded-full border-2 border-background ${
+                                  onlineUsers.has(room.friendId) ? "fill-green-500 text-green-500" : "fill-gray-400 text-gray-400"
+                                }`}
+                              />
+                            </div>
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center justify-between mb-1">
                                 <p className="text-sm font-semibold truncate">{room.friendUsername}</p>
@@ -248,58 +515,106 @@ const Social = () => {
               <Card className="lg:col-span-2">
                 {selectedFriend && selectedFriendData ? (
                   <>
-                    <CardHeader className="border-b border-border">
-                      <div className="flex items-center gap-3">
-                        <Avatar className="h-10 w-10 border-2 border-primary/30">
-                          <AvatarFallback className="bg-primary/10 text-primary">
-                            {selectedFriendData.username[0]}
-                          </AvatarFallback>
-                        </Avatar>
-                        <div>
-                          <CardTitle className="text-lg">{selectedFriendData.username}</CardTitle>
-                          <p className="text-xs text-muted-foreground">
-                            Class {selectedFriendData.class} • {selectedFriendData.rating} rating
-                          </p>
+                     <CardHeader className="border-b border-border">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <div className="relative">
+                            <Avatar className="h-10 w-10 border-2 border-primary/30">
+                              <AvatarFallback className="bg-primary/10 text-primary">
+                                {selectedFriendData.username[0]}
+                              </AvatarFallback>
+                            </Avatar>
+                            <Circle
+                              className={`absolute -bottom-1 -right-1 h-3 w-3 rounded-full border-2 border-background ${
+                                isSelectedFriendOnline ? "fill-green-500 text-green-500" : "fill-gray-400 text-gray-400"
+                              }`}
+                            />
+                          </div>
+                          <div>
+                            <CardTitle className="text-lg flex items-center gap-2">
+                              {selectedFriendData.username}
+                              {isSelectedFriendOnline && (
+                                <span className="text-xs text-green-500 font-normal">Online</span>
+                              )}
+                            </CardTitle>
+                            <p className="text-xs text-muted-foreground">
+                              Class {selectedFriendData.class} • {selectedFriendData.rating} rating
+                            </p>
+                          </div>
                         </div>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button size="icon" variant="ghost">
+                              <MoreVertical className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => navigate(`/profile/${selectedFriend}`)}>
+                              View Profile
+                            </DropdownMenuItem>
+                            {blockedUsers.has(selectedFriend!) ? (
+                              <DropdownMenuItem onClick={() => handleUnblockUser(selectedFriend!)}>
+                                Unblock User
+                              </DropdownMenuItem>
+                            ) : (
+                              <DropdownMenuItem 
+                                onClick={() => handleBlockUser(selectedFriend!)}
+                                className="text-destructive"
+                              >
+                                <Ban className="h-4 w-4 mr-2" />
+                                Block User
+                              </DropdownMenuItem>
+                            )}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       </div>
                     </CardHeader>
-                    <CardContent className="p-0">
-                      <ScrollArea className="h-[480px] p-4">
-                        <div className="space-y-4">
+                    <CardContent className="p-0 flex flex-col" style={{ height: '540px' }}>
+                      <ScrollArea className="flex-1 p-4">
+                        <div className="space-y-2">
                           {selectedFriendMessages.map((msg) => (
-                            <div
+                            <ChatBubble
                               key={msg.id}
-                              className={`flex ${msg.sender_id === user?.id ? 'justify-end' : 'justify-start'}`}
-                            >
-                              <div
-                                className={`max-w-[70%] rounded-lg p-3 ${
-                                  msg.sender_id === user?.id
-                                    ? 'bg-primary text-primary-foreground'
-                                    : 'bg-card-dark text-foreground'
-                                }`}
-                              >
-                                <p className="text-sm">{msg.message}</p>
-                                <p className="text-xs opacity-70 mt-1">
-                                  {new Date(msg.created_at).toLocaleTimeString([], { 
-                                    hour: '2-digit', 
-                                    minute: '2-digit' 
-                                  })}
-                                </p>
-                              </div>
-                            </div>
+                              message={msg.message}
+                              timestamp={msg.created_at}
+                              isOwn={msg.sender_id === user?.id}
+                              reactions={msg.reactions}
+                              onReact={(emoji) => handleReaction(msg.id, emoji)}
+                              onDelete={msg.sender_id === user?.id ? () => handleDeleteMessage(msg.id) : undefined}
+                              deleted={msg.sender_id === user?.id ? msg.deleted_for_sender : msg.deleted_for_receiver}
+                            />
                           ))}
+                          <div ref={chatEndRef} />
                         </div>
+                        {isSelectedFriendTyping && (
+                          <div className="flex items-center gap-2 text-muted-foreground text-sm py-2 animate-in fade-in-0 slide-in-from-bottom-2 duration-200">
+                            <Loader2 className="h-3 w-3 animate-spin" />
+                            <span>{selectedFriendData.username} is typing...</span>
+                          </div>
+                        )}
                       </ScrollArea>
-                      <div className="border-t border-border p-4">
+                      <div className="border-t border-border p-4 bg-background">
                         <div className="flex gap-2">
                           <Input
+                            ref={messageInputRef}
                             placeholder="Type a message..."
                             value={messageInput}
-                            onChange={(e) => setMessageInput(e.target.value)}
-                            onKeyPress={(e) => e.key === 'Enter' && sendMessage()}
-                            className="flex-1"
+                            onChange={handleInputChange}
+                            onKeyPress={(e) => {
+                              if (e.key === 'Enter' && !e.shiftKey) {
+                                e.preventDefault();
+                                sendMessage();
+                              }
+                            }}
+                            onBlur={stopTyping}
+                            className="flex-1 rounded-full"
                           />
-                          <Button onClick={sendMessage} size="icon">
+                          <Button 
+                            onClick={sendMessage} 
+                            size="icon"
+                            className="rounded-full"
+                            disabled={!messageInput.trim()}
+                          >
                             <Send className="h-4 w-4" />
                           </Button>
                         </div>
@@ -325,7 +640,7 @@ const Social = () => {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Users className="h-5 w-5" />
-                  My Friends ({friends.length})
+                  My Friends ({friends.filter(f => !blockedUsers.has(f.id)).length})
                 </CardTitle>
               </CardHeader>
               <CardContent>
@@ -338,49 +653,127 @@ const Social = () => {
                     </p>
                   </div>
                 ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {friends.map((friend) => (
-                      <Card key={friend.id} className="bg-card-dark">
-                        <CardContent className="p-4">
-                          <div 
-                            className="flex items-center gap-3 mb-3 cursor-pointer hover:opacity-80"
-                            onClick={() => navigate(`/profile/${friend.id}`)}
-                          >
-                            <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center">
-                              <Crown className="h-6 w-6 text-primary" />
-                            </div>
-                            <div className="flex-1">
-                              <p className="font-bold">{friend.username}</p>
-                              <div className="flex items-center gap-2 mt-1">
+                  <div className="space-y-4">
+                    {organizedFriends.map((group) => (
+                      group.friends.length > 0 && (
+                        <Collapsible
+                          key={group.groupName}
+                          open={group.isOpen}
+                          onOpenChange={(open) => setGroupStates(prev => ({ ...prev, [group.groupName]: open }))}
+                        >
+                          <CollapsibleTrigger className="w-full">
+                            <div className="flex items-center justify-between p-3 bg-card-dark rounded-lg hover:bg-accent/50 transition-colors">
+                              <div className="flex items-center gap-2">
+                                <h3 className="font-semibold text-sm">{group.groupName}</h3>
                                 <Badge variant="outline" className="text-xs">
-                                  Class {friend.class}
+                                  {group.friends.length}
                                 </Badge>
-                                <span className="text-xs text-muted-foreground">
-                                  {friend.rating}
-                                </span>
                               </div>
+                              <span className="text-muted-foreground text-xs">
+                                {group.isOpen ? "▼" : "▶"}
+                              </span>
                             </div>
-                          </div>
-                          <div className="flex gap-2">
-                            <Button 
-                              size="sm" 
-                              variant="outline" 
-                              className="flex-1"
-                              onClick={() => setSelectedFriend(friend.id)}
-                            >
-                              <MessageCircle className="h-4 w-4 mr-1" />
-                              Message
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              onClick={() => removeFriend(friend.id)}
-                            >
-                              <X className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </CardContent>
-                      </Card>
+                          </CollapsibleTrigger>
+                          <CollapsibleContent>
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-3">
+                              {group.friends.map((friend) => (
+                                <Card key={friend.id} className="bg-card-dark hover:bg-accent/30 transition-all">
+                                  <CardContent className="p-4">
+                                    <div 
+                                      className="flex items-center gap-3 mb-3 cursor-pointer hover:opacity-80"
+                                      onClick={() => navigate(`/profile/${friend.id}`)}
+                                    >
+                                      <div className="relative">
+                                        <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center">
+                                          <Crown className="h-6 w-6 text-primary" />
+                                        </div>
+                                        <Circle
+                                          className={`absolute -bottom-1 -right-1 h-3 w-3 rounded-full border-2 border-background ${
+                                            onlineUsers.has(friend.id) ? "fill-green-500 text-green-500" : "fill-gray-400 text-gray-400"
+                                          }`}
+                                        />
+                                      </div>
+                                      <div className="flex-1">
+                                        <p className="font-bold flex items-center gap-2">
+                                          {friend.username}
+                                          {onlineUsers.has(friend.id) && (
+                                            <span className="text-xs text-green-500 font-normal">Online</span>
+                                          )}
+                                        </p>
+                                        <div className="flex items-center gap-2 mt-1">
+                                          <Badge variant="outline" className="text-xs">
+                                            Class {friend.class}
+                                          </Badge>
+                                          <span className="text-xs text-muted-foreground">
+                                            {friend.rating}
+                                          </span>
+                                        </div>
+                                      </div>
+                                    </div>
+                                    <div className="flex gap-2">
+                                      <Button 
+                                        size="sm" 
+                                        variant="outline" 
+                                        className="flex-1"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setSelectedFriend(friend.id);
+                                        }}
+                                      >
+                                        <MessageCircle className="h-4 w-4 mr-1" />
+                                        Message
+                                      </Button>
+                                      <DropdownMenu>
+                                        <DropdownMenuTrigger asChild>
+                                          <Button size="sm" variant="ghost">
+                                            <MoreVertical className="h-4 w-4" />
+                                          </Button>
+                                        </DropdownMenuTrigger>
+                                        <DropdownMenuContent align="end">
+                                          <DropdownMenuItem onClick={(e) => {
+                                            e.stopPropagation();
+                                            handleChangeFriendGroup(friend.id, "Close Friends");
+                                          }}>
+                                            Move to Close Friends
+                                          </DropdownMenuItem>
+                                          <DropdownMenuItem onClick={(e) => {
+                                            e.stopPropagation();
+                                            handleChangeFriendGroup(friend.id, "Rivals");
+                                          }}>
+                                            Move to Rivals
+                                          </DropdownMenuItem>
+                                          <DropdownMenuItem onClick={(e) => {
+                                            e.stopPropagation();
+                                            handleChangeFriendGroup(friend.id, "Training Partners");
+                                          }}>
+                                            Move to Training Partners
+                                          </DropdownMenuItem>
+                                          <DropdownMenuItem onClick={(e) => {
+                                            e.stopPropagation();
+                                            handleChangeFriendGroup(friend.id, "Others");
+                                          }}>
+                                            Move to Others
+                                          </DropdownMenuItem>
+                                          <DropdownMenuItem 
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              removeFriend(friend.id);
+                                            }}
+                                            className="text-destructive"
+                                          >
+                                            <X className="h-4 w-4 mr-2" />
+                                            Remove Friend
+                                          </DropdownMenuItem>
+                                        </DropdownMenuContent>
+                                      </DropdownMenu>
+                                    </div>
+                                  </CardContent>
+                                </Card>
+                              ))}
+                            </div>
+                          </CollapsibleContent>
+                        </Collapsible>
+                      )
                     ))}
                   </div>
                 )}

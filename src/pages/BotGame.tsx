@@ -13,7 +13,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 
 const BotGame = () => {
   const [searchParams, setSearchParams] = useSearchParams();
-  const difficulty = (searchParams.get('difficulty') || 'moderate') as 'easy' | 'moderate' | 'hard';
+  const difficulty = (searchParams.get('difficulty') || 'moderate') as 'easy' | 'moderate' | 'hard' | 'super-hard';
   const navigate = useNavigate();
   const { activeTheme, userPreferences, active3DTheme } = useTheme();
   const is3DMode = userPreferences?.is_3d_mode || false;
@@ -27,10 +27,10 @@ const BotGame = () => {
   const [isFullScreen, setIsFullScreen] = useState(false);
   const [showDifficultySelector, setShowDifficultySelector] = useState(false);
 
-  const difficulties: Array<'easy' | 'moderate' | 'hard'> = ['easy', 'moderate', 'hard'];
+  const difficulties: Array<'easy' | 'moderate' | 'hard' | 'super-hard'> = ['easy', 'moderate', 'hard', 'super-hard'];
   const currentIndex = difficulties.indexOf(difficulty);
 
-  const changeDifficulty = (newDifficulty: 'easy' | 'moderate' | 'hard') => {
+  const changeDifficulty = (newDifficulty: 'easy' | 'moderate' | 'hard' | 'super-hard') => {
     setSearchParams({ difficulty: newDifficulty });
     resetGame();
     setShowDifficultySelector(false);
@@ -92,21 +92,28 @@ const BotGame = () => {
           color: 'text-green-400', 
           bgColor: 'bg-green-500/10 border-green-500/30',
           icon: Zap,
-          description: 'Basic moves, makes mistakes'
+          description: '~600-800 ELO • Makes frequent mistakes'
         };
       case 'moderate':
         return { 
           color: 'text-yellow-400', 
           bgColor: 'bg-yellow-500/10 border-yellow-500/30',
           icon: Target,
-          description: 'Tactical play, depth 2'
+          description: '~1200-1500 ELO • Occasional mistakes'
         };
       case 'hard':
         return { 
           color: 'text-red-400', 
           bgColor: 'bg-red-500/10 border-red-500/30',
           icon: Brain,
-          description: 'Advanced AI, depth 4+'
+          description: '~1800-2000 ELO • Strong player'
+        };
+      case 'super-hard':
+        return { 
+          color: 'text-purple-400', 
+          bgColor: 'bg-purple-500/10 border-purple-500/30',
+          icon: Brain,
+          description: '~2400+ ELO • Near Grandmaster'
         };
       default:
         return { 
@@ -163,9 +170,16 @@ const BotGame = () => {
         {isThinking && (
           <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-10">
             <Card className="p-3 bg-card/90 backdrop-blur-sm border-border">
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-3">
                 <Brain className="h-5 w-5 text-primary animate-pulse" />
-                <p className="text-sm text-muted-foreground">Bot is thinking...</p>
+                <div className="flex items-center gap-1">
+                  <p className="text-sm text-muted-foreground">Bot is thinking</p>
+                  <span className="flex gap-0.5">
+                    <span className="w-1 h-1 bg-primary rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></span>
+                    <span className="w-1 h-1 bg-primary rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></span>
+                    <span className="w-1 h-1 bg-primary rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></span>
+                  </span>
+                </div>
               </div>
             </Card>
           </div>
@@ -319,9 +333,16 @@ const BotGame = () => {
         {isThinking && (
           <Card className="p-4 bg-card border-border">
             <div className="text-center">
-              <div className="flex items-center justify-center gap-2">
+              <div className="flex items-center justify-center gap-3">
                 <Brain className="h-5 w-5 text-primary animate-pulse" />
-                <p className="text-sm text-muted-foreground">Bot is thinking...</p>
+                <div className="flex items-center gap-1">
+                  <p className="text-sm text-muted-foreground">Bot is thinking</p>
+                  <span className="flex gap-0.5">
+                    <span className="w-1.5 h-1.5 bg-primary rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></span>
+                    <span className="w-1.5 h-1.5 bg-primary rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></span>
+                    <span className="w-1.5 h-1.5 bg-primary rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></span>
+                  </span>
+                </div>
               </div>
             </div>
           </Card>

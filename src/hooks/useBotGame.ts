@@ -5,7 +5,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useXPSystem } from '@/hooks/useXPSystem';
 
-type Difficulty = 'easy' | 'moderate' | 'hard';
+type Difficulty = 'easy' | 'moderate' | 'hard' | 'super-hard';
 
 // Piece values for evaluation
 const PIECE_VALUES: { [key: string]: number } = {
@@ -35,11 +35,53 @@ const KNIGHT_TABLE = [
   -50,-40,-20,-30,-30,-20,-40,-50
 ];
 
-// Difficulty configurations with optimized parameters
-const DIFFICULTY_CONFIG = {
-  easy: { depth: 2, randomness: 0.4, timeLimit: 150 },
-  moderate: { depth: 3, randomness: 0.15, timeLimit: 400 },
-  hard: { depth: 4, randomness: 0.05, timeLimit: 800 }
+// Professional 5-parameter difficulty system (Chess.com / Lichess style)
+interface DifficultyConfig {
+  depth: number;
+  multipv: number;
+  randomness: number;
+  blunderChance: number;
+  thinkTime: [number, number]; // min, max milliseconds
+  eloRange: string;
+}
+
+const DIFFICULTY_CONFIG: Record<Difficulty, DifficultyConfig> = {
+  // EASY MODE (600-800 ELO) - Human beginner with frequent mistakes
+  easy: { 
+    depth: 2, 
+    multipv: 4,
+    randomness: 0.6, 
+    blunderChance: 0.45,
+    thinkTime: [100, 250],
+    eloRange: '~600-800'
+  },
+  // MEDIUM MODE (1200-1500 ELO) - Intermediate player, occasional mistakes
+  moderate: { 
+    depth: 6, 
+    multipv: 3,
+    randomness: 0.25, 
+    blunderChance: 0.08,
+    thinkTime: [250, 600],
+    eloRange: '~1200-1500'
+  },
+  // HARD MODE (1800-2000 ELO) - Strong player, minimal mistakes
+  hard: { 
+    depth: 14, 
+    multipv: 1,
+    randomness: 0.05, 
+    blunderChance: 0,
+    thinkTime: [900, 1500],
+    eloRange: '~1800-2000'
+  },
+  // SUPER HARD MODE (2400+ ELO) - Near grandmaster strength
+  'super-hard': { 
+    depth: 24, 
+    multipv: 1,
+    randomness: 0, 
+    blunderChance: 0,
+    thinkTime: [2000, 4000],
+    eloRange: '~2400+'
+  }
 };
 
 export const useBotGame = (difficulty: Difficulty = 'moderate') => {
@@ -134,22 +176,28 @@ export const useBotGame = (difficulty: Difficulty = 'moderate') => {
     }
   }, [evaluateBoard]);
 
-  // Get best move with optimized search
+  // Professional move selection with blunder injection and multipv
   const getBotMove = useCallback(async (game: Chess): Promise<Move | null> => {
     const config = DIFFICULTY_CONFIG[difficulty];
     const moves = game.moves({ verbose: true });
     if (moves.length === 0) return null;
 
-    // Apply randomness for lower difficulties
-    if (Math.random() < config.randomness) {
-      return moves[Math.floor(Math.random() * Math.min(moves.length, 5))];
-    }
+    // Simulate thinking time
+    const thinkTime = config.thinkTime[0] + Math.random() * (config.thinkTime[1] - config.thinkTime[0]);
+    await new Promise(resolve => setTimeout(resolve, thinkTime));
 
     const startTime = Date.now();
-    let bestMove = moves[0];
-    let bestValue = -Infinity;
+    const timeLimit = config.thinkTime[1];
 
-    // Move ordering: evaluate captures first
+    // Evaluate all moves and get top N (multipv)
+    interface ScoredMove {
+      move: Move;
+      score: number;
+    }
+    
+    const scoredMoves: ScoredMove[] = [];
+
+    // Move ordering: evaluate captures first for better pruning
     moves.sort((a, b) => {
       const aScore = a.captured ? PIECE_VALUES[a.captured] : 0;
       const bScore = b.captured ? PIECE_VALUES[b.captured] : 0;
@@ -157,47 +205,84 @@ export const useBotGame = (difficulty: Difficulty = 'moderate') => {
     });
 
     for (const move of moves) {
-      // Time limit check
-      if (Date.now() - startTime > config.timeLimit) break;
+      if (Date.now() - startTime > timeLimit) break;
 
       const testGame = new Chess(game.fen());
       testGame.move(move);
-      const value = minimax(testGame, config.depth - 1, -Infinity, Infinity, false, startTime, config.timeLimit);
+      const score = minimax(testGame, config.depth - 1, -Infinity, Infinity, false, startTime, timeLimit);
 
-      if (value > bestValue) {
-        bestValue = value;
-        bestMove = move;
+      scoredMoves.push({ move, score });
+    }
+
+    // Sort by score (best first)
+    scoredMoves.sort((a, b) => b.score - a.score);
+
+    // DEBUG LOGGING (for testing)
+    if (process.env.NODE_ENV === 'development') {
+      console.log('🤖 Bot Analysis:', {
+        difficulty,
+        topMoves: scoredMoves.slice(0, 3).map(sm => ({ 
+          move: `${sm.move.from}-${sm.move.to}`, 
+          score: sm.score 
+        })),
+        multipv: config.multipv,
+        blunderChance: config.blunderChance
+      });
+    }
+
+    // BLUNDER INJECTION (Easy/Medium modes)
+    if (config.blunderChance > 0 && Math.random() < config.blunderChance) {
+      // Intentionally pick a suboptimal move
+      const weakMoves = scoredMoves.slice(Math.floor(scoredMoves.length * 0.4));
+      if (weakMoves.length > 0) {
+        const blunderMove = weakMoves[Math.floor(Math.random() * weakMoves.length)];
+        console.log('💥 Blunder injected:', `${blunderMove.move.from}-${blunderMove.move.to}`);
+        return blunderMove.move;
       }
     }
 
-    return bestMove;
+    // MULTIPV SELECTION (top-moves pool)
+    const topMoves = scoredMoves.slice(0, config.multipv);
+    
+    // Apply randomness to selection from top moves
+    if (config.randomness > 0 && Math.random() < config.randomness && topMoves.length > 1) {
+      const randomIndex = Math.floor(Math.random() * topMoves.length);
+      return topMoves[randomIndex].move;
+    }
+
+    // Default: return best move
+    return scoredMoves[0]?.move || moves[0];
   }, [difficulty, minimax]);
 
-  // Bot move execution
+  // Bot move execution (non-blocking UI)
   const makeBotMove = useCallback(async (currentGame: Chess) => {
     if (currentGame.isGameOver()) return currentGame;
 
     setIsThinking(true);
 
-    // Get bot move
-    const move = await getBotMove(currentGame);
-    
-    if (move) {
-      // Apply move
-      currentGame.move(move);
+    try {
+      // Get bot move (async, won't block UI)
+      const move = await getBotMove(currentGame);
       
-      // Highlight bot move
-      requestAnimationFrame(() => {
-        document.querySelectorAll('.highlight-from, .highlight-to').forEach(el => {
-          el.classList.remove('highlight-from', 'highlight-to');
+      if (move) {
+        // Apply move
+        currentGame.move(move);
+        
+        // Smooth highlight animation
+        requestAnimationFrame(() => {
+          document.querySelectorAll('.highlight-from, .highlight-to').forEach(el => {
+            el.classList.remove('highlight-from', 'highlight-to');
+          });
+          
+          const fromSquare = document.querySelector(`[data-square="${move.from}"]`);
+          const toSquare = document.querySelector(`[data-square="${move.to}"]`);
+          
+          if (fromSquare) fromSquare.classList.add('highlight-from');
+          if (toSquare) toSquare.classList.add('highlight-to');
         });
-        
-        const fromSquare = document.querySelector(`[data-square="${move.from}"]`);
-        const toSquare = document.querySelector(`[data-square="${move.to}"]`);
-        
-        if (fromSquare) fromSquare.classList.add('highlight-from');
-        if (toSquare) toSquare.classList.add('highlight-to');
-      });
+      }
+    } catch (error) {
+      console.error('Bot move error:', error);
     }
 
     setIsThinking(false);

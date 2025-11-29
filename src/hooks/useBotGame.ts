@@ -130,6 +130,7 @@ export const useBotGame = (power: Power = 50) => {
   const [isThinking, setIsThinking] = useState(false);
   const [lastMove, setLastMove] = useState<{ from: Square; to: Square; isOpponent: boolean } | null>(null);
   const [gameId, setGameId] = useState<string | null>(null);
+  const [cacheHit, setCacheHit] = useState(false);
   const hasAwardedXP = useRef(false);
   const { user, refreshProfile } = useAuth();
   const { awardMatchXP } = useXPSystem();
@@ -255,7 +256,7 @@ export const useBotGame = (power: Power = 50) => {
   }, []);
 
   // Professional move selection with caching, lightweight mode, and performance optimizations
-  const getBotMove = useCallback(async (game: Chess): Promise<Move | null> => {
+  const getBotMove = useCallback(async (game: Chess): Promise<{ move: Move | null; cacheHit: boolean }> => {
     const startCalcTime = Date.now();
     const currentFen = game.fen();
     const masterLevel = getMasterLevelBoost().depthBoost * 4 + 1; // Approximate master level
@@ -263,8 +264,8 @@ export const useBotGame = (power: Power = 50) => {
     // Check cache first
     const cached = moveCache.get(currentFen);
     if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
-      console.log('🎯 Cache hit for position');
-      return cached.bestMove;
+      console.log('🎯 Cache hit for position - cacheHit=true');
+      return { move: cached.bestMove, cacheHit: true };
     }
 
     // Cleanup old cache entries
@@ -297,7 +298,7 @@ export const useBotGame = (power: Power = 50) => {
         // Still apply think time for realism
         const thinkTime = config.thinkTime[0] + Math.random() * (config.thinkTime[1] - config.thinkTime[0]);
         await new Promise(resolve => setTimeout(resolve, thinkTime));
-        return quickMove;
+        return { move: quickMove, cacheHit: false };
       }
     }
 
@@ -379,7 +380,7 @@ export const useBotGame = (power: Power = 50) => {
       if (weakMoves.length > 0) {
         const blunderMove = weakMoves[Math.floor(Math.random() * weakMoves.length)];
         console.log('💥 Blunder injected:', `${blunderMove.move.from}-${blunderMove.move.to}`);
-        return blunderMove.move;
+        return { move: blunderMove.move, cacheHit: false };
       }
     }
 
@@ -389,7 +390,7 @@ export const useBotGame = (power: Power = 50) => {
     // Apply randomness to selection from top moves
     if (config.randomness > 0 && Math.random() < config.randomness && topMoves.length > 1) {
       const randomIndex = Math.floor(Math.random() * topMoves.length);
-      return topMoves[randomIndex].move;
+      return { move: topMoves[randomIndex].move, cacheHit: false };
     }
 
     // Anti-lag fallback: if calculation took too long, use best candidate
@@ -403,7 +404,7 @@ export const useBotGame = (power: Power = 50) => {
         score: 0,
         timestamp: Date.now()
       });
-      return fallbackMove;
+      return { move: fallbackMove, cacheHit: false };
     }
 
     // Default: return best move
@@ -436,7 +437,7 @@ export const useBotGame = (power: Power = 50) => {
       });
     }
 
-    return bestMove;
+    return { move: bestMove, cacheHit: false };
   }, [power, minimax, getAdaptiveAdjustment, detectTrick, winStreak, lossStreak, getMasterLevelBoost, cleanupCache, quickEvaluate]);
 
   // Bot move execution (non-blocking UI)
@@ -444,21 +445,29 @@ export const useBotGame = (power: Power = 50) => {
     if (currentGame.isGameOver()) return currentGame;
 
     setIsThinking(true);
+    setCacheHit(false); // Reset cache hit state
 
     try {
       // Get bot move (async, won't block UI)
-      const move = await getBotMove(currentGame);
+      const result = await getBotMove(currentGame);
       
-      if (move) {
+      if (result.move) {
         // Apply move
-        currentGame.move(move);
+        currentGame.move(result.move);
         
         // Update last move state for highlighting (RED for bot moves)
         setLastMove({ 
-          from: move.from as Square, 
-          to: move.to as Square,
+          from: result.move.from as Square, 
+          to: result.move.to as Square,
           isOpponent: true // Bot moves are opponent moves (RED)
         });
+
+        // Set cache hit state for animation
+        if (result.cacheHit) {
+          setCacheHit(true);
+          // Auto-hide after 1.5s
+          setTimeout(() => setCacheHit(false), 1500);
+        }
       }
     } catch (error) {
       console.error('Bot move error:', error);
@@ -633,6 +642,7 @@ export const useBotGame = (power: Power = 50) => {
     gameOver: chess.isGameOver(),
     engineReady: true,
     lastMove,
-    gameId
+    gameId,
+    cacheHit
   };
 };

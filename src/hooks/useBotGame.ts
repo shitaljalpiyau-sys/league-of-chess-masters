@@ -78,11 +78,14 @@ const getPowerConfig = (power: Power): DifficultyConfig => {
   };
 };
 
-// Calculate XP reward based on power level
+// Calculate XP reward with smooth exponential scaling (15 to 100)
 export const getPowerXPReward = (power: Power): number => {
-  if (power <= 33) return 15;   // Easy range
-  if (power <= 66) return 40;   // Medium range
-  return 100;                   // Hard range
+  const baseXP = 15;
+  const maxXP = 100;
+  const normalizedPower = power / 100;
+  // Exponential curve: XP = 15 + (85 * (power/100)^1.8)
+  const scaledXP = baseXP + (maxXP - baseXP) * Math.pow(normalizedPower, 1.8);
+  return Math.round(scaledXP);
 };
 
 // Get power range label

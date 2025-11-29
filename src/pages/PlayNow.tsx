@@ -89,12 +89,33 @@ const PlayNow = () => {
   };
 
 
+  const ongoingMasterMatch = activeGames.find(
+    (game) => !game.black_player_id.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)
+  );
+
+  const handleResignMatch = async () => {
+    if (!ongoingMasterMatch) return;
+    
+    const { error } = await supabase
+      .from('games')
+      .update({ 
+        status: 'completed',
+        result: 'resignation'
+      })
+      .eq('id', ongoingMasterMatch.id);
+
+    if (!error) {
+      toast.success("Match resigned");
+      fetchActiveGames();
+    }
+  };
+
   return (
-    <div className="min-h-screen p-6 bg-gradient-to-br from-background via-secondary/20 to-background">
-      <div className="max-w-7xl mx-auto space-y-8">
+    <div className="min-h-screen p-4 md:p-6 bg-gradient-to-br from-background via-secondary/20 to-background">
+      <div className="max-w-7xl mx-auto space-y-6">
         {/* Header */}
         <div className="text-center space-y-2 animate-fade-in">
-          <h1 className="text-5xl font-bold font-rajdhani bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
+          <h1 className="text-4xl md:text-5xl font-bold font-rajdhani bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
             Play Now
           </h1>
         </div>
@@ -125,10 +146,10 @@ const PlayNow = () => {
         )}
 
         {/* Main Content - 60/40 Split */}
-        <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-5 gap-4 md:gap-6">
           {/* LEFT: YOUR MASTER Section - 60% (3 cols) */}
-          <div className="lg:col-span-3">
-            <Card className="relative p-8 bg-[rgba(20,20,25,0.85)] border-[1.5px] border-green-500/40 shadow-[0_8px_32px_rgba(34,197,94,0.15),0_0_1px_rgba(34,197,94,0.3)] rounded-2xl overflow-hidden backdrop-blur-md">
+          <div className="lg:col-span-3 flex">
+            <Card className="relative p-6 md:p-8 bg-[rgba(20,20,25,0.85)] border-[1.5px] border-green-500/40 shadow-[0_8px_32px_rgba(34,197,94,0.15),0_0_1px_rgba(34,197,94,0.3)] rounded-2xl overflow-hidden backdrop-blur-md w-full flex flex-col">
               {/* Green Particles Background */}
               <GreenParticles />
               
@@ -153,68 +174,35 @@ const PlayNow = () => {
                 </Tooltip>
               </TooltipProvider>
 
-              <div className="relative space-y-8 z-10">
+              <div className="relative space-y-6 md:space-y-8 z-10 flex-1 flex flex-col">
                 {/* Header */}
                 <div className="text-center space-y-2">
-                  <h2 className="text-3xl font-bold font-rajdhani text-green-400 drop-shadow-[0_0_12px_rgba(34,197,94,0.4)] tracking-wide">
+                  <h2 className="text-2xl md:text-3xl font-bold font-rajdhani text-green-400 drop-shadow-[0_0_12px_rgba(34,197,94,0.4)] tracking-wide">
                     YOUR MASTER
                   </h2>
                   <p className="text-xs text-muted-foreground/80">
-                    Elite AI opponent with adaptive intelligence
+                    {ongoingMasterMatch ? "Match In Progress" : "Elite AI opponent with adaptive intelligence"}
                   </p>
                 </div>
                 
-                {/* Master Profile - 40/60 Split Layout */}
-                <div className="flex items-start gap-10">
-                  {/* Avatar Section - 40% */}
-                  <div className="flex-shrink-0 flex flex-col items-center gap-3">
+                {ongoingMasterMatch ? (
+                  /* Match In Progress View */
+                  <div className="flex-1 flex flex-col items-center justify-center space-y-6">
                     <div className="relative group">
-                      {/* Subtle rotating glow */}
                       <div className="absolute inset-0 rounded-full bg-gradient-to-r from-green-500/20 via-green-400/20 to-green-500/20 blur-lg animate-[spin_10s_linear_infinite]" />
-                      
-                      {/* Circular frame */}
                       <div className="relative w-32 h-32 rounded-full border-2 border-green-500/50 shadow-[0_0_24px_rgba(34,197,94,0.3)] bg-gradient-to-br from-green-500/10 via-background/50 to-green-500/10 flex items-center justify-center backdrop-blur-sm overflow-hidden">
-                        {/* Anime Coach Avatar */}
                         <img 
                           src={coachAvatar} 
                           alt="Chess Master Coach" 
                           className="w-full h-full object-cover"
                         />
-                        
-                        {/* Bot Badge */}
-                        <div className="absolute -bottom-2 -right-2 w-8 h-8 rounded-full bg-gradient-to-br from-green-500 to-green-600 border-2 border-background/90 flex items-center justify-center shadow-lg">
-                          <Bot className="h-4 w-4 text-white" strokeWidth={2.5} />
-                        </div>
                       </div>
                     </div>
 
-                    {/* Micro-description */}
-                    <div className="text-center space-y-0.5">
-                      <p className="text-[10px] font-bold text-green-400/90 uppercase tracking-wider">
-                        Elite Strategy Model v1.2
-                      </p>
-                      <p className="text-[9px] text-muted-foreground/70 max-w-[140px] leading-tight">
-                        Adaptive intelligence based on your power setting
-                      </p>
-                    </div>
-                  </div>
-                    
-                  {/* Power Section + Stats - 60% */}
-                  <div className="flex-1 space-y-5">
-                    {/* Power Display */}
-                    <div className="space-y-2">
-                      <div className="flex items-center gap-3">
-                        <span className="text-sm font-semibold text-muted-foreground/80 uppercase tracking-wider">Power:</span>
-                        <span className="text-5xl font-bold font-rajdhani text-green-400 drop-shadow-[0_2px_12px_rgba(34,197,94,0.4)]">
-                          {masterPower[0]}
-                        </span>
-                      </div>
-                      
-                      {/* AI Behavior Stars */}
-                      <div className="flex items-center gap-2">
-                        <span className="text-[10px] font-semibold text-muted-foreground/70 uppercase tracking-wide">
-                          AI Behavior:
-                        </span>
+                    <div className="text-center space-y-3">
+                      <p className="text-lg font-bold text-green-400">Current Power: {masterPower[0]}</p>
+                      <div className="flex items-center justify-center gap-2">
+                        <span className="text-xs text-muted-foreground/70">AI Behavior:</span>
                         <div className="flex gap-0.5">
                           {[1, 2, 3, 4, 5].map((star) => (
                             <Star
@@ -228,25 +216,112 @@ const PlayNow = () => {
                           ))}
                         </div>
                       </div>
-                      
-                      <p className="text-xs text-muted-foreground/70 leading-relaxed">
-                        Higher power increases strategic depth and precision
-                      </p>
                     </div>
 
-                    {/* XP Reward Badge */}
-                    <div className="inline-flex items-center gap-2 px-3 py-2 rounded-full bg-gradient-to-r from-green-500/15 to-green-600/15 border border-green-500/30 shadow-sm">
-                      <Zap className="h-4 w-4 text-green-400" />
-                      <span className="text-sm font-bold text-green-400">
-                        +{getXPReward()} XP
-                      </span>
-                      <span className="text-[10px] text-muted-foreground/60">(scales with power)</span>
+                    <div className="w-full space-y-3">
+                      <Button 
+                        size="lg" 
+                        className="w-full h-14 text-lg font-bold font-rajdhani bg-gradient-to-r from-green-500 via-green-400 to-green-500 hover:from-green-400 hover:via-green-300 hover:to-green-400 text-background hover:shadow-[0_0_32px_rgba(34,197,94,0.5)] transition-all duration-300 hover:scale-[1.02]"
+                        onClick={() => navigate(`/bot-game?gameId=${ongoingMasterMatch.id}`)}
+                      >
+                        RESUME MATCH
+                      </Button>
+                      <Button 
+                        variant="ghost"
+                        size="sm"
+                        className="w-full text-red-400 hover:text-red-300 hover:bg-red-500/10"
+                        onClick={handleResignMatch}
+                      >
+                        Resign Match
+                      </Button>
                     </div>
                   </div>
-                </div>
+                ) : (
+                  /* Normal Master Controls */
+                  <>
+                    {/* Master Profile - 40/60 Split Layout */}
+                    <div className="flex flex-col md:flex-row items-start gap-6 md:gap-10">
+                      {/* Avatar Section - 40% */}
+                      <div className="flex-shrink-0 flex flex-col items-center gap-3 mx-auto md:mx-0">
+                        <div className="relative group">
+                          {/* Subtle rotating glow */}
+                          <div className="absolute inset-0 rounded-full bg-gradient-to-r from-green-500/20 via-green-400/20 to-green-500/20 blur-lg animate-[spin_10s_linear_infinite]" />
+                          
+                          {/* Circular frame */}
+                          <div className="relative w-28 h-28 md:w-32 md:h-32 rounded-full border-2 border-green-500/50 shadow-[0_0_24px_rgba(34,197,94,0.3)] bg-gradient-to-br from-green-500/10 via-background/50 to-green-500/10 flex items-center justify-center backdrop-blur-sm overflow-hidden">
+                            {/* Anime Coach Avatar */}
+                            <img 
+                              src={coachAvatar} 
+                              alt="Chess Master Coach" 
+                              className="w-full h-full object-cover"
+                            />
+                            
+                            {/* Bot Badge */}
+                            <div className="absolute -bottom-2 -right-2 w-8 h-8 rounded-full bg-gradient-to-br from-green-500 to-green-600 border-2 border-background/90 flex items-center justify-center shadow-lg">
+                              <Bot className="h-4 w-4 text-white" strokeWidth={2.5} />
+                            </div>
+                          </div>
+                        </div>
 
-                {/* Power Slider Section */}
-                <div className="space-y-4 pt-3">
+                        {/* Micro-description */}
+                        <div className="text-center space-y-0.5">
+                          <p className="text-[10px] font-bold text-green-400/90 uppercase tracking-wider">
+                            Elite Strategy Model v1.2
+                          </p>
+                          <p className="text-[9px] text-muted-foreground/70 max-w-[140px] leading-tight">
+                            Adaptive intelligence based on your power setting
+                          </p>
+                        </div>
+                      </div>
+                        
+                      {/* Power Section + Stats - 60% */}
+                      <div className="flex-1 space-y-5 w-full">
+                        {/* Power Display */}
+                        <div className="space-y-2">
+                          <div className="flex items-center gap-3">
+                            <span className="text-sm font-semibold text-muted-foreground/80 uppercase tracking-wider">Power:</span>
+                            <span className="text-4xl md:text-5xl font-bold font-rajdhani text-green-400 drop-shadow-[0_2px_12px_rgba(34,197,94,0.4)]">
+                              {masterPower[0]}
+                            </span>
+                          </div>
+                          
+                          {/* AI Behavior Stars */}
+                          <div className="flex items-center gap-2">
+                            <span className="text-[10px] font-semibold text-muted-foreground/70 uppercase tracking-wide">
+                              AI Behavior:
+                            </span>
+                            <div className="flex gap-0.5">
+                              {[1, 2, 3, 4, 5].map((star) => (
+                                <Star
+                                  key={star}
+                                  className={`h-3.5 w-3.5 ${
+                                    star <= getAIStars()
+                                      ? 'fill-green-400 text-green-400'
+                                      : 'text-muted-foreground/30'
+                                  }`}
+                                />
+                              ))}
+                            </div>
+                          </div>
+                          
+                          <p className="text-xs text-muted-foreground/70 leading-relaxed">
+                            Higher power increases strategic depth and precision
+                          </p>
+                        </div>
+
+                        {/* XP Reward Badge */}
+                        <div className="inline-flex items-center gap-2 px-3 py-2 rounded-full bg-gradient-to-r from-green-500/15 to-green-600/15 border border-green-500/30 shadow-sm">
+                          <Zap className="h-4 w-4 text-green-400" />
+                          <span className="text-sm font-bold text-green-400">
+                            +{getXPReward()} XP
+                          </span>
+                          <span className="text-[10px] text-muted-foreground/60">(scales with power)</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Power Slider Section */}
+                    <div className="space-y-4 pt-3">
                   <div className="text-center">
                     <p className="text-xs font-semibold text-muted-foreground/70 uppercase tracking-wider mb-3">
                       Adjust Master Intelligence Level
@@ -282,43 +357,47 @@ const PlayNow = () => {
                     </div>
                   </div>
 
-                  {/* Difficulty Labels - LOW MID HIGH */}
-                  <div className="relative pt-1">
-                    <div className="flex items-center justify-between text-[11px] font-bold text-muted-foreground/50 uppercase tracking-widest px-3">
-                      <span className={`transition-colors ${masterPower[0] <= 33 ? 'text-green-400 drop-shadow-[0_0_8px_rgba(34,197,94,0.5)]' : ''}`}>LOW</span>
-                      <span className={`transition-colors ${masterPower[0] > 33 && masterPower[0] <= 66 ? 'text-yellow-400 drop-shadow-[0_0_8px_rgba(234,179,8,0.5)]' : ''}`}>MID</span>
-                      <span className={`transition-colors ${masterPower[0] > 66 ? 'text-red-400 drop-shadow-[0_0_8px_rgba(239,68,68,0.5)]' : ''}`}>HIGH</span>
+                      {/* Difficulty Labels - LOW MID HIGH */}
+                      <div className="relative pt-1">
+                        <div className="flex items-center justify-between text-[11px] font-bold text-muted-foreground/50 uppercase tracking-widest px-3">
+                          <span className={`transition-colors ${masterPower[0] <= 33 ? 'text-green-400 drop-shadow-[0_0_8px_rgba(34,197,94,0.5)]' : ''}`}>LOW</span>
+                          <span className={`transition-colors ${masterPower[0] > 33 && masterPower[0] <= 66 ? 'text-yellow-400 drop-shadow-[0_0_8px_rgba(234,179,8,0.5)]' : ''}`}>MID</span>
+                          <span className={`transition-colors ${masterPower[0] > 66 ? 'text-red-400 drop-shadow-[0_0_8px_rgba(239,68,68,0.5)]' : ''}`}>HIGH</span>
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                </div>
 
-                {/* Start Game Button */}
-                <Button 
-                  size="lg" 
-                  className="w-full h-14 text-lg font-bold font-rajdhani bg-gradient-to-r from-green-500 via-green-400 to-green-500 hover:from-green-400 hover:via-green-300 hover:to-green-400 text-background hover:shadow-[0_0_32px_rgba(34,197,94,0.5)] transition-all duration-300 hover:scale-[1.02]"
-                  onClick={() => navigate(`/bot-game?power=${masterPower[0]}`)}
-                >
-                  CHALLENGE YOUR MASTER
-                </Button>
+                    {/* Start Game Button */}
+                    <Button 
+                      size="lg" 
+                      className="w-full h-14 text-lg font-bold font-rajdhani bg-gradient-to-r from-green-500 via-green-400 to-green-500 hover:from-green-400 hover:via-green-300 hover:to-green-400 text-background hover:shadow-[0_0_32px_rgba(34,197,94,0.5)] transition-all duration-300 hover:scale-[1.02]"
+                      onClick={() => navigate(`/bot-game?power=${masterPower[0]}`)}
+                    >
+                      CHALLENGE YOUR MASTER
+                    </Button>
+                  </>
+                )}
               </div>
             </Card>
           </div>
 
           {/* RIGHT: Recent Gameplays - 40% (2 cols) */}
-          <div className="lg:col-span-2">
-            <RecentBotGames />
+          <div className="lg:col-span-2 flex">
+            <div className="w-full">
+              <RecentBotGames />
+            </div>
           </div>
         </div>
 
         {/* Challenge Player + Quick Match - Side by Side */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
           {/* Challenge a Player Section */}
-        <Card className="p-8 bg-gradient-to-r from-primary/10 to-accent/10 border-2 border-primary/20 shadow-lg">
-          <div className="space-y-6">
+        <Card className="p-6 md:p-8 bg-gradient-to-r from-primary/10 to-accent/10 border-2 border-primary/20 shadow-lg">
+          <div className="space-y-4 md:space-y-6">
             <div className="text-center space-y-2">
               <div className="flex items-center justify-center gap-2">
-                <Swords className="h-8 w-8 text-primary" />
-                <h2 className="text-3xl font-bold font-rajdhani">Challenge a Player</h2>
+                <Swords className="h-6 w-6 md:h-8 md:w-8 text-primary" />
+                <h2 className="text-2xl md:text-3xl font-bold font-rajdhani">Challenge a Player</h2>
               </div>
               <p className="text-muted-foreground">
                 Challenge any player to a game
@@ -346,11 +425,11 @@ const PlayNow = () => {
         </Card>
 
         {/* Quick Match Section */}
-        <Card className="p-8 bg-gradient-to-r from-primary/10 to-secondary/10 border-2 border-primary/20">
+        <Card className="p-6 md:p-8 bg-gradient-to-r from-primary/10 to-secondary/10 border-2 border-primary/20">
           <div className="text-center space-y-4">
             <div className="flex items-center justify-center gap-2">
-              <Zap className="h-8 w-8 text-primary animate-pulse" />
-              <h2 className="text-3xl font-bold font-rajdhani">Quick Match</h2>
+              <Zap className="h-6 w-6 md:h-8 md:w-8 text-primary animate-pulse" />
+              <h2 className="text-2xl md:text-3xl font-bold font-rajdhani">Quick Match</h2>
             </div>
             <p className="text-muted-foreground">
               Find an opponent instantly and start playing right away

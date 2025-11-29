@@ -3,7 +3,8 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Slider } from "@/components/ui/slider";
-import { Clock, Trophy, Zap, Users, Loader2, Bot, Swords, Brain } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Clock, Trophy, Zap, Users, Loader2, Bot, Swords, Brain, Info } from "lucide-react";
 import { useQuickMatch } from "@/hooks/useQuickMatch";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -20,12 +21,23 @@ const PlayNow = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
 
-  // Calculate XP reward based on power range
+  // Calculate XP reward with smooth scaling (15 to 100)
   const getXPReward = () => {
     const power = masterPower[0];
-    if (power <= 33) return 15;  // Easy range
-    if (power <= 66) return 40;  // Medium range
-    return 100;                  // Hard range
+    // Smooth exponential curve: XP = 15 + (85 * (power/100)^1.8)
+    const baseXP = 15;
+    const maxXP = 100;
+    const normalizedPower = power / 100;
+    const scaledXP = baseXP + (maxXP - baseXP) * Math.pow(normalizedPower, 1.8);
+    return Math.round(scaledXP);
+  };
+
+  // Get difficulty label based on power
+  const getDifficultyLabel = () => {
+    const power = masterPower[0];
+    if (power <= 33) return 'LOW';
+    if (power <= 66) return 'MID';
+    return 'HIGH';
   };
 
   const handleSendChallenge = async () => {
@@ -146,76 +158,128 @@ const PlayNow = () => {
         )}
 
         {/* YOUR MASTER Section */}
-        <Card className="p-8 bg-gradient-to-r from-primary/10 to-accent/10 border-2 border-primary/20 shadow-lg">
-          <div className="space-y-6">
-            <div className="text-center space-y-2">
+        <Card className="relative p-8 bg-gradient-to-br from-primary/8 via-background/95 to-accent/8 border border-primary/30 shadow-[0_0_20px_rgba(var(--primary-rgb),0.15)] rounded-2xl overflow-hidden backdrop-blur-sm">
+          {/* Subtle inner glow */}
+          <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-primary/5 to-transparent pointer-events-none" />
+          
+          {/* Info Button */}
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="absolute top-4 right-4 h-8 w-8 rounded-full hover:bg-primary/10 z-10"
+                >
+                  <Info className="h-4 w-4 text-muted-foreground" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p className="text-xs">Your Master adapts based on power level</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+
+          <div className="relative space-y-6">
+            {/* Header */}
+            <div className="text-center space-y-1">
               <div className="flex items-center justify-center gap-2">
-                <Brain className="h-8 w-8 text-primary" />
-                <h2 className="text-3xl font-bold font-rajdhani">YOUR MASTER</h2>
+                <Brain className="h-7 w-7 text-primary animate-pulse" />
+                <h2 className="text-3xl font-bold font-rajdhani bg-gradient-to-r from-primary via-primary to-accent bg-clip-text text-transparent">
+                  YOUR MASTER
+                </h2>
               </div>
-              <p className="text-muted-foreground">
+              <p className="text-xs text-muted-foreground">
                 Control your opponent's intelligence level
               </p>
             </div>
             
-            {/* Master Profile Card */}
-            <Card className="p-6 bg-card/50 border-primary/20">
-              <div className="flex items-center gap-6">
-                {/* Avatar */}
-                <div className="relative">
-                  <div className="w-20 h-20 rounded-full bg-gradient-to-br from-primary to-accent flex items-center justify-center">
-                    <Brain className="h-10 w-10 text-primary-foreground" />
-                  </div>
-                  <div className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-primary border-2 border-card flex items-center justify-center">
-                    <Bot className="h-3 w-3 text-primary-foreground" />
+            {/* Master Profile - 40/60 Split Layout */}
+            <div className="flex items-center gap-8">
+              {/* Avatar Section - 40% */}
+              <div className="flex-shrink-0 flex items-center justify-center">
+                <div className="relative group">
+                  {/* Rotating glow ring */}
+                  <div className="absolute inset-0 rounded-full bg-gradient-to-r from-primary/30 via-accent/30 to-primary/30 blur-md animate-[spin_8s_linear_infinite]" />
+                  
+                  {/* Circular frame */}
+                  <div className="relative w-28 h-28 rounded-full border-2 border-primary/40 shadow-[0_0_16px_rgba(var(--primary-rgb),0.3)] bg-gradient-to-br from-primary/10 to-accent/10 flex items-center justify-center backdrop-blur-sm">
+                    {/* Premium AI mentor silhouette */}
+                    <div className="relative">
+                      <Brain className="h-14 w-14 text-primary drop-shadow-[0_0_8px_rgba(var(--primary-rgb),0.6)]" strokeWidth={1.5} />
+                      <div className="absolute -bottom-1 -right-1 w-7 h-7 rounded-full bg-gradient-to-br from-primary to-accent border-2 border-background/80 flex items-center justify-center shadow-lg">
+                        <Bot className="h-4 w-4 text-primary-foreground" strokeWidth={2.5} />
+                      </div>
+                    </div>
                   </div>
                 </div>
+              </div>
                 
-                {/* Power Info */}
-                <div className="flex-1">
-                  <div className="flex items-baseline gap-2 mb-1">
-                    <span className="text-sm text-muted-foreground">Power:</span>
-                    <span className="text-3xl font-bold font-rajdhani bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
+              {/* Power Section + Stats - 60% */}
+              <div className="flex-1 space-y-4">
+                {/* Power Display */}
+                <div className="space-y-1">
+                  <div className="flex items-center gap-3">
+                    <span className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Power:</span>
+                    <span className="text-4xl font-bold font-rajdhani bg-gradient-to-r from-primary via-primary to-accent bg-clip-text text-transparent drop-shadow-[0_2px_8px_rgba(var(--primary-rgb),0.3)]">
                       {masterPower[0]}
                     </span>
                   </div>
-                  <p className="text-xs text-muted-foreground">
-                    Your master becomes smarter at higher power levels.
+                  <p className="text-xs text-muted-foreground leading-relaxed">
+                    Higher power = stronger Master
                   </p>
-                  <div className="mt-2 flex items-center gap-2">
-                    <span className="text-xs font-semibold text-accent">
-                      Win Reward: +{getXPReward()} XP
-                    </span>
-                  </div>
+                </div>
+
+                {/* XP Reward Badge */}
+                <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-gradient-to-r from-accent/20 to-primary/20 border border-accent/30">
+                  <Zap className="h-3.5 w-3.5 text-accent" />
+                  <span className="text-sm font-bold text-accent">
+                    Win: +{getXPReward()} XP
+                  </span>
                 </div>
               </div>
-            </Card>
+            </div>
 
-            {/* Power Slider */}
-            <div className="space-y-4">
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-muted-foreground">Weakest</span>
-                <span className="text-muted-foreground">Strongest</span>
+            {/* Power Slider Section */}
+            <div className="space-y-3 pt-2">
+              <div className="text-center">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
+                  Increase Master Power to raise intelligence
+                </p>
               </div>
-              <Slider
-                value={masterPower}
-                onValueChange={setMasterPower}
-                min={0}
-                max={100}
-                step={1}
-                className="w-full"
-              />
-              <div className="flex items-center justify-between text-xs text-muted-foreground">
-                <span>Easy (+15 XP)</span>
-                <span>Medium (+40 XP)</span>
-                <span>Hard (+100 XP)</span>
+
+              {/* Slider with gradient track */}
+              <div className="relative px-2">
+                <Slider
+                  value={masterPower}
+                  onValueChange={setMasterPower}
+                  min={0}
+                  max={100}
+                  step={1}
+                  className="w-full [&>span]:h-2.5 [&>span]:bg-gradient-to-r [&>span]:from-green-500/30 [&>span]:to-primary/30 [&_[role=slider]]:h-5 [&_[role=slider]]:w-5 [&_[role=slider]]:border-2 [&_[role=slider]]:border-primary [&_[role=slider]]:shadow-[0_0_12px_rgba(var(--primary-rgb),0.5)] [&_[role=slider]]:bg-background hover:[&_[role=slider]]:scale-110 transition-transform"
+                />
+              </div>
+
+              {/* Difficulty Indicator Bar */}
+              <div className="relative pt-2">
+                <div className="flex items-center justify-between text-[10px] font-semibold text-muted-foreground/60 uppercase tracking-wider px-1">
+                  <span className={masterPower[0] <= 33 ? 'text-green-400' : ''}>Low</span>
+                  <span className={masterPower[0] > 33 && masterPower[0] <= 66 ? 'text-yellow-400' : ''}>Mid</span>
+                  <span className={masterPower[0] > 66 ? 'text-red-400' : ''}>High</span>
+                </div>
+                {/* Active indicator dot */}
+                <div className="flex items-center justify-between mt-1 px-1">
+                  <div className={`h-1.5 w-1.5 rounded-full transition-all duration-300 ${masterPower[0] <= 33 ? 'bg-green-400 shadow-[0_0_8px_rgba(34,197,94,0.6)]' : 'bg-muted-foreground/20'}`} />
+                  <div className={`h-1.5 w-1.5 rounded-full transition-all duration-300 ${masterPower[0] > 33 && masterPower[0] <= 66 ? 'bg-yellow-400 shadow-[0_0_8px_rgba(234,179,8,0.6)]' : 'bg-muted-foreground/20'}`} />
+                  <div className={`h-1.5 w-1.5 rounded-full transition-all duration-300 ${masterPower[0] > 66 ? 'bg-red-400 shadow-[0_0_8px_rgba(239,68,68,0.6)]' : 'bg-muted-foreground/20'}`} />
+                </div>
               </div>
             </div>
 
             {/* Start Game Button */}
             <Button 
               size="lg" 
-              className="w-full h-14 text-lg font-semibold bg-gradient-to-r from-primary to-accent hover:opacity-90 transition-opacity"
+              className="w-full h-14 text-lg font-bold font-rajdhani bg-gradient-to-r from-primary via-primary to-accent hover:opacity-90 hover:shadow-[0_0_24px_rgba(var(--primary-rgb),0.4)] transition-all duration-300 hover:scale-[1.02]"
               onClick={() => navigate(`/bot-game?power=${masterPower[0]}`)}
             >
               CHALLENGE YOUR MASTER

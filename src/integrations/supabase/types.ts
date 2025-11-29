@@ -585,6 +585,51 @@ export type Database = {
         }
         Relationships: []
       }
+      master_learning: {
+        Row: {
+          average_attack_direction: string | null
+          blunder_squares: Json | null
+          created_at: string | null
+          id: string
+          learning_enabled: boolean | null
+          losing_patterns: Json | null
+          openings_used: Json | null
+          preferred_moves: Json | null
+          updated_at: string | null
+          user_id: string
+          weak_squares: Json | null
+          win_patterns: Json | null
+        }
+        Insert: {
+          average_attack_direction?: string | null
+          blunder_squares?: Json | null
+          created_at?: string | null
+          id?: string
+          learning_enabled?: boolean | null
+          losing_patterns?: Json | null
+          openings_used?: Json | null
+          preferred_moves?: Json | null
+          updated_at?: string | null
+          user_id: string
+          weak_squares?: Json | null
+          win_patterns?: Json | null
+        }
+        Update: {
+          average_attack_direction?: string | null
+          blunder_squares?: Json | null
+          created_at?: string | null
+          id?: string
+          learning_enabled?: boolean | null
+          losing_patterns?: Json | null
+          openings_used?: Json | null
+          preferred_moves?: Json | null
+          updated_at?: string | null
+          user_id?: string
+          weak_squares?: Json | null
+          win_patterns?: Json | null
+        }
+        Relationships: []
+      }
       master_progress: {
         Row: {
           created_at: string

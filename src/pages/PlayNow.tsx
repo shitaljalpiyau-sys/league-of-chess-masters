@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Slider } from "@/components/ui/slider";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { Clock, Zap, Loader2, Bot, Swords, Info, Star, Activity } from "lucide-react";
+import { Clock, Zap, Loader2, Bot, Swords, Info, Star, Activity, Brain } from "lucide-react";
 import coachAvatar from "@/assets/coach-avatar.png";
 import { GreenParticles } from "@/components/GreenParticles";
 import { useQuickMatch } from "@/hooks/useQuickMatch";
@@ -14,6 +14,7 @@ import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { RecentBotGames } from "@/components/RecentBotGames";
 import { useMasterProgress } from "@/hooks/useMasterProgress";
+import { useMasterLearning } from "@/hooks/useMasterLearning";
 import { Progress } from "@/components/ui/progress";
 import { MasterPerformanceDashboard } from "@/components/MasterPerformanceDashboard";
 import { getPerformanceMetrics } from "@/hooks/useBotGame";
@@ -29,6 +30,7 @@ const PlayNow = () => {
   const { user, profile } = useAuth();
   const navigate = useNavigate();
   const { masterProgress, loading: masterLoading, getNextLevelXP } = useMasterProgress();
+  const { learningData, toggleLearning } = useMasterLearning();
 
   // Auto-update performance metrics every 5 seconds
   useEffect(() => {
@@ -399,6 +401,22 @@ const PlayNow = () => {
                       >
                         <Activity className="h-3.5 w-3.5 mr-2" />
                         AI Diagnostics
+                      </Button>
+                    </div>
+
+                    {/* Master Learning Toggle */}
+                    <div className="flex items-center justify-between px-4 py-3 rounded-lg bg-green-500/5 border border-green-500/20">
+                      <div className="flex items-center gap-2">
+                        <Brain className="h-4 w-4 text-green-400" />
+                        <span className="text-sm font-medium text-muted-foreground">Master Learning</span>
+                      </div>
+                      <Button
+                        variant={learningData?.learning_enabled ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => toggleLearning(!learningData?.learning_enabled)}
+                        className="h-8 px-3 text-xs"
+                      >
+                        {learningData?.learning_enabled ? 'ON' : 'OFF'}
                       </Button>
                     </div>
 

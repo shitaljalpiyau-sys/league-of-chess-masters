@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Slider } from "@/components/ui/slider";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { Clock, Trophy, Zap, Users, Loader2, Bot, Swords, Info, Star } from "lucide-react";
+import { Clock, Zap, Loader2, Bot, Swords, Info, Star } from "lucide-react";
 import coachAvatar from "@/assets/coach-avatar.png";
 import { GreenParticles } from "@/components/GreenParticles";
 import { useQuickMatch } from "@/hooks/useQuickMatch";
@@ -88,36 +88,6 @@ const PlayNow = () => {
     }
   };
 
-  const gameModes = [
-    {
-      title: "Blitz Chess",
-      description: "Fast-paced 3-5 minute games",
-      icon: Zap,
-      timeControl: "3+2",
-      gradient: "bg-gradient-to-br from-yellow-500/10 to-orange-500/10"
-    },
-    {
-      title: "Rapid Chess",
-      description: "Standard 10-15 minute games",
-      icon: Clock,
-      timeControl: "10+5",
-      gradient: "bg-gradient-to-br from-blue-500/10 to-cyan-500/10"
-    },
-    {
-      title: "Classical Chess",
-      description: "Long format 30+ minute games",
-      icon: Trophy,
-      timeControl: "30+0",
-      gradient: "bg-gradient-to-br from-purple-500/10 to-pink-500/10"
-    },
-    {
-      title: "Team Battle",
-      description: "Join forces with other players",
-      icon: Users,
-      timeControl: "5+3",
-      gradient: "bg-gradient-to-br from-green-500/10 to-emerald-500/10"
-    }
-  ];
 
   return (
     <div className="min-h-screen p-6 bg-gradient-to-br from-background via-secondary/20 to-background">
@@ -127,9 +97,6 @@ const PlayNow = () => {
           <h1 className="text-5xl font-bold font-rajdhani bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
             Play Now
           </h1>
-          <p className="text-muted-foreground text-lg">
-            Choose your game mode and start playing
-          </p>
         </div>
 
         {/* Active Games */}
@@ -157,183 +124,195 @@ const PlayNow = () => {
           </div>
         )}
 
-        {/* YOUR MASTER Section - Glassmorphism Premium Panel */}
-        <Card className="relative p-10 bg-[rgba(20,20,25,0.85)] border-[1.5px] border-green-500/40 shadow-[0_8px_32px_rgba(34,197,94,0.15),0_0_1px_rgba(34,197,94,0.3)] rounded-2xl overflow-hidden backdrop-blur-md">
-          {/* Green Particles Background */}
-          <GreenParticles />
-          
-          {/* Glassmorphism inner glow */}
-          <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-green-500/5 via-transparent to-green-500/5 pointer-events-none" />
-          
-          {/* Info Button */}
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="absolute top-4 right-4 h-8 w-8 rounded-full hover:bg-green-500/10 z-10"
-                >
-                  <Info className="h-4 w-4 text-green-400/60 hover:text-green-400" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent className="bg-background/95 border-green-500/30">
-                <p className="text-xs">Your Master adapts based on power level</p>
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
+        {/* Main Content - 60/40 Split */}
+        <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
+          {/* LEFT: YOUR MASTER Section - 60% (3 cols) */}
+          <div className="lg:col-span-3">
+            <Card className="relative p-8 bg-[rgba(20,20,25,0.85)] border-[1.5px] border-green-500/40 shadow-[0_8px_32px_rgba(34,197,94,0.15),0_0_1px_rgba(34,197,94,0.3)] rounded-2xl overflow-hidden backdrop-blur-md">
+              {/* Green Particles Background */}
+              <GreenParticles />
+              
+              {/* Glassmorphism inner glow */}
+              <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-green-500/5 via-transparent to-green-500/5 pointer-events-none" />
+              
+              {/* Info Button */}
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="absolute top-4 right-4 h-8 w-8 rounded-full hover:bg-green-500/10 z-10"
+                    >
+                      <Info className="h-4 w-4 text-green-400/60 hover:text-green-400" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent className="bg-background/95 border-green-500/30">
+                    <p className="text-xs">Your Master adapts based on power level</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
 
-          <div className="relative space-y-8 z-10">
-            {/* Header */}
-            <div className="text-center space-y-2">
-              <h2 className="text-3xl font-bold font-rajdhani text-green-400 drop-shadow-[0_0_12px_rgba(34,197,94,0.4)] tracking-wide">
-                YOUR MASTER
-              </h2>
-              <p className="text-xs text-muted-foreground/80">
-                Elite AI opponent with adaptive intelligence
-              </p>
-            </div>
-            
-            {/* Master Profile - 40/60 Split Layout */}
-            <div className="flex items-start gap-10">
-              {/* Avatar Section - 40% */}
-              <div className="flex-shrink-0 flex flex-col items-center gap-3">
-                <div className="relative group">
-                  {/* Subtle rotating glow */}
-                  <div className="absolute inset-0 rounded-full bg-gradient-to-r from-green-500/20 via-green-400/20 to-green-500/20 blur-lg animate-[spin_10s_linear_infinite]" />
-                  
-                  {/* Circular frame */}
-                  <div className="relative w-32 h-32 rounded-full border-2 border-green-500/50 shadow-[0_0_24px_rgba(34,197,94,0.3)] bg-gradient-to-br from-green-500/10 via-background/50 to-green-500/10 flex items-center justify-center backdrop-blur-sm overflow-hidden">
-                    {/* Anime Coach Avatar */}
-                    <img 
-                      src={coachAvatar} 
-                      alt="Chess Master Coach" 
-                      className="w-full h-full object-cover"
-                    />
+              <div className="relative space-y-8 z-10">
+                {/* Header */}
+                <div className="text-center space-y-2">
+                  <h2 className="text-3xl font-bold font-rajdhani text-green-400 drop-shadow-[0_0_12px_rgba(34,197,94,0.4)] tracking-wide">
+                    YOUR MASTER
+                  </h2>
+                  <p className="text-xs text-muted-foreground/80">
+                    Elite AI opponent with adaptive intelligence
+                  </p>
+                </div>
+                
+                {/* Master Profile - 40/60 Split Layout */}
+                <div className="flex items-start gap-10">
+                  {/* Avatar Section - 40% */}
+                  <div className="flex-shrink-0 flex flex-col items-center gap-3">
+                    <div className="relative group">
+                      {/* Subtle rotating glow */}
+                      <div className="absolute inset-0 rounded-full bg-gradient-to-r from-green-500/20 via-green-400/20 to-green-500/20 blur-lg animate-[spin_10s_linear_infinite]" />
+                      
+                      {/* Circular frame */}
+                      <div className="relative w-32 h-32 rounded-full border-2 border-green-500/50 shadow-[0_0_24px_rgba(34,197,94,0.3)] bg-gradient-to-br from-green-500/10 via-background/50 to-green-500/10 flex items-center justify-center backdrop-blur-sm overflow-hidden">
+                        {/* Anime Coach Avatar */}
+                        <img 
+                          src={coachAvatar} 
+                          alt="Chess Master Coach" 
+                          className="w-full h-full object-cover"
+                        />
+                        
+                        {/* Bot Badge */}
+                        <div className="absolute -bottom-2 -right-2 w-8 h-8 rounded-full bg-gradient-to-br from-green-500 to-green-600 border-2 border-background/90 flex items-center justify-center shadow-lg">
+                          <Bot className="h-4 w-4 text-white" strokeWidth={2.5} />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Micro-description */}
+                    <div className="text-center space-y-0.5">
+                      <p className="text-[10px] font-bold text-green-400/90 uppercase tracking-wider">
+                        Elite Strategy Model v1.2
+                      </p>
+                      <p className="text-[9px] text-muted-foreground/70 max-w-[140px] leading-tight">
+                        Adaptive intelligence based on your power setting
+                      </p>
+                    </div>
+                  </div>
                     
-                    {/* Bot Badge */}
-                    <div className="absolute -bottom-2 -right-2 w-8 h-8 rounded-full bg-gradient-to-br from-green-500 to-green-600 border-2 border-background/90 flex items-center justify-center shadow-lg">
-                      <Bot className="h-4 w-4 text-white" strokeWidth={2.5} />
+                  {/* Power Section + Stats - 60% */}
+                  <div className="flex-1 space-y-5">
+                    {/* Power Display */}
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-3">
+                        <span className="text-sm font-semibold text-muted-foreground/80 uppercase tracking-wider">Power:</span>
+                        <span className="text-5xl font-bold font-rajdhani text-green-400 drop-shadow-[0_2px_12px_rgba(34,197,94,0.4)]">
+                          {masterPower[0]}
+                        </span>
+                      </div>
+                      
+                      {/* AI Behavior Stars */}
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] font-semibold text-muted-foreground/70 uppercase tracking-wide">
+                          AI Behavior:
+                        </span>
+                        <div className="flex gap-0.5">
+                          {[1, 2, 3, 4, 5].map((star) => (
+                            <Star
+                              key={star}
+                              className={`h-3.5 w-3.5 ${
+                                star <= getAIStars()
+                                  ? 'fill-green-400 text-green-400'
+                                  : 'text-muted-foreground/30'
+                              }`}
+                            />
+                          ))}
+                        </div>
+                      </div>
+                      
+                      <p className="text-xs text-muted-foreground/70 leading-relaxed">
+                        Higher power increases strategic depth and precision
+                      </p>
+                    </div>
+
+                    {/* XP Reward Badge */}
+                    <div className="inline-flex items-center gap-2 px-3 py-2 rounded-full bg-gradient-to-r from-green-500/15 to-green-600/15 border border-green-500/30 shadow-sm">
+                      <Zap className="h-4 w-4 text-green-400" />
+                      <span className="text-sm font-bold text-green-400">
+                        +{getXPReward()} XP
+                      </span>
+                      <span className="text-[10px] text-muted-foreground/60">(scales with power)</span>
                     </div>
                   </div>
                 </div>
 
-                {/* Micro-description */}
-                <div className="text-center space-y-0.5">
-                  <p className="text-[10px] font-bold text-green-400/90 uppercase tracking-wider">
-                    Elite Strategy Model v1.2
-                  </p>
-                  <p className="text-[9px] text-muted-foreground/70 max-w-[140px] leading-tight">
-                    Adaptive intelligence based on your power setting
-                  </p>
-                </div>
-              </div>
-                
-              {/* Power Section + Stats - 60% */}
-              <div className="flex-1 space-y-5">
-                {/* Power Display */}
-                <div className="space-y-2">
-                  <div className="flex items-center gap-3">
-                    <span className="text-sm font-semibold text-muted-foreground/80 uppercase tracking-wider">Power:</span>
-                    <span className="text-5xl font-bold font-rajdhani text-green-400 drop-shadow-[0_2px_12px_rgba(34,197,94,0.4)]">
-                      {masterPower[0]}
-                    </span>
+                {/* Power Slider Section */}
+                <div className="space-y-4 pt-3">
+                  <div className="text-center">
+                    <p className="text-xs font-semibold text-muted-foreground/70 uppercase tracking-wider mb-3">
+                      Adjust Master Intelligence Level
+                    </p>
                   </div>
-                  
-                  {/* AI Behavior Stars */}
-                  <div className="flex items-center gap-2">
-                    <span className="text-[10px] font-semibold text-muted-foreground/70 uppercase tracking-wide">
-                      AI Behavior:
-                    </span>
-                    <div className="flex gap-0.5">
-                      {[1, 2, 3, 4, 5].map((star) => (
-                        <Star
-                          key={star}
-                          className={`h-3.5 w-3.5 ${
-                            star <= getAIStars()
-                              ? 'fill-green-400 text-green-400'
-                              : 'text-muted-foreground/30'
-                          }`}
-                        />
+
+                  {/* Enhanced Slider with ticks and moving gradient */}
+                  <div className="relative px-3">
+                    {/* Tick marks */}
+                    <div className="absolute top-0 left-3 right-3 flex justify-between pointer-events-none" style={{ top: '-8px' }}>
+                      {[0, 20, 40, 60, 80, 100].map((tick) => (
+                        <div key={tick} className="flex flex-col items-center">
+                          <div className="w-0.5 h-2 bg-green-500/30" />
+                          <span className="text-[8px] text-muted-foreground/50 mt-0.5">{tick}</span>
+                        </div>
                       ))}
                     </div>
-                  </div>
-                  
-                  <p className="text-xs text-muted-foreground/70 leading-relaxed">
-                    Higher power increases strategic depth and precision
-                  </p>
-                </div>
 
-                {/* XP Reward Badge */}
-                <div className="inline-flex items-center gap-2 px-3 py-2 rounded-full bg-gradient-to-r from-green-500/15 to-green-600/15 border border-green-500/30 shadow-sm">
-                  <Zap className="h-4 w-4 text-green-400" />
-                  <span className="text-sm font-bold text-green-400">
-                    +{getXPReward()} XP
-                  </span>
-                  <span className="text-[10px] text-muted-foreground/60">(scales with power)</span>
-                </div>
-              </div>
-            </div>
+                    <div className="relative mt-6">
+                      {/* Animated gradient background in track */}
+                      <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-3 rounded-full overflow-hidden bg-gradient-to-r from-green-500/10 via-green-400/20 to-green-500/10">
+                        <div className="absolute inset-0 bg-gradient-to-r from-transparent via-green-400/30 to-transparent animate-[slide-in-right_3s_ease-in-out_infinite]" />
+                      </div>
 
-            {/* Power Slider Section */}
-            <div className="space-y-4 pt-3">
-              <div className="text-center">
-                <p className="text-xs font-semibold text-muted-foreground/70 uppercase tracking-wider mb-3">
-                  Adjust Master Intelligence Level
-                </p>
-              </div>
-
-              {/* Enhanced Slider with ticks and moving gradient */}
-              <div className="relative px-3">
-                {/* Tick marks */}
-                <div className="absolute top-0 left-3 right-3 flex justify-between pointer-events-none" style={{ top: '-8px' }}>
-                  {[0, 20, 40, 60, 80, 100].map((tick) => (
-                    <div key={tick} className="flex flex-col items-center">
-                      <div className="w-0.5 h-2 bg-green-500/30" />
-                      <span className="text-[8px] text-muted-foreground/50 mt-0.5">{tick}</span>
+                      <Slider
+                        value={masterPower}
+                        onValueChange={setMasterPower}
+                        min={0}
+                        max={100}
+                        step={1}
+                        className="relative w-full [&>span:first-child]:h-3 [&>span:first-child]:bg-transparent [&>span:last-child]:bg-gradient-to-r [&>span:last-child]:from-green-500/60 [&>span:last-child]:to-green-400/60 [&_[role=slider]]:h-6 [&_[role=slider]]:w-6 [&_[role=slider]]:border-2 [&_[role=slider]]:border-green-400 [&_[role=slider]]:shadow-[0_0_16px_rgba(34,197,94,0.6),inset_0_0_8px_rgba(34,197,94,0.3)] [&_[role=slider]]:bg-gradient-to-br [&_[role=slider]]:from-green-400/20 [&_[role=slider]]:to-background hover:[&_[role=slider]]:scale-125 transition-transform [&_[role=slider]]:ring-2 [&_[role=slider]]:ring-green-400/30"
+                      />
                     </div>
-                  ))}
-                </div>
-
-                <div className="relative mt-6">
-                  {/* Animated gradient background in track */}
-                  <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-3 rounded-full overflow-hidden bg-gradient-to-r from-green-500/10 via-green-400/20 to-green-500/10">
-                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-green-400/30 to-transparent animate-[slide-in-right_3s_ease-in-out_infinite]" />
                   </div>
 
-                  <Slider
-                    value={masterPower}
-                    onValueChange={setMasterPower}
-                    min={0}
-                    max={100}
-                    step={1}
-                    className="relative w-full [&>span:first-child]:h-3 [&>span:first-child]:bg-transparent [&>span:last-child]:bg-gradient-to-r [&>span:last-child]:from-green-500/60 [&>span:last-child]:to-green-400/60 [&_[role=slider]]:h-6 [&_[role=slider]]:w-6 [&_[role=slider]]:border-2 [&_[role=slider]]:border-green-400 [&_[role=slider]]:shadow-[0_0_16px_rgba(34,197,94,0.6),inset_0_0_8px_rgba(34,197,94,0.3)] [&_[role=slider]]:bg-gradient-to-br [&_[role=slider]]:from-green-400/20 [&_[role=slider]]:to-background hover:[&_[role=slider]]:scale-125 transition-transform [&_[role=slider]]:ring-2 [&_[role=slider]]:ring-green-400/30"
-                  />
+                  {/* Difficulty Labels - LOW MID HIGH */}
+                  <div className="relative pt-1">
+                    <div className="flex items-center justify-between text-[11px] font-bold text-muted-foreground/50 uppercase tracking-widest px-3">
+                      <span className={`transition-colors ${masterPower[0] <= 33 ? 'text-green-400 drop-shadow-[0_0_8px_rgba(34,197,94,0.5)]' : ''}`}>LOW</span>
+                      <span className={`transition-colors ${masterPower[0] > 33 && masterPower[0] <= 66 ? 'text-yellow-400 drop-shadow-[0_0_8px_rgba(234,179,8,0.5)]' : ''}`}>MID</span>
+                      <span className={`transition-colors ${masterPower[0] > 66 ? 'text-red-400 drop-shadow-[0_0_8px_rgba(239,68,68,0.5)]' : ''}`}>HIGH</span>
+                    </div>
+                  </div>
                 </div>
-              </div>
 
-              {/* Difficulty Labels - LOW MID HIGH */}
-              <div className="relative pt-1">
-                <div className="flex items-center justify-between text-[11px] font-bold text-muted-foreground/50 uppercase tracking-widest px-3">
-                  <span className={`transition-colors ${masterPower[0] <= 33 ? 'text-green-400 drop-shadow-[0_0_8px_rgba(34,197,94,0.5)]' : ''}`}>LOW</span>
-                  <span className={`transition-colors ${masterPower[0] > 33 && masterPower[0] <= 66 ? 'text-yellow-400 drop-shadow-[0_0_8px_rgba(234,179,8,0.5)]' : ''}`}>MID</span>
-                  <span className={`transition-colors ${masterPower[0] > 66 ? 'text-red-400 drop-shadow-[0_0_8px_rgba(239,68,68,0.5)]' : ''}`}>HIGH</span>
-                </div>
+                {/* Start Game Button */}
+                <Button 
+                  size="lg" 
+                  className="w-full h-14 text-lg font-bold font-rajdhani bg-gradient-to-r from-green-500 via-green-400 to-green-500 hover:from-green-400 hover:via-green-300 hover:to-green-400 text-background hover:shadow-[0_0_32px_rgba(34,197,94,0.5)] transition-all duration-300 hover:scale-[1.02]"
+                  onClick={() => navigate(`/bot-game?power=${masterPower[0]}`)}
+                >
+                  CHALLENGE YOUR MASTER
+                </Button>
               </div>
-            </div>
-
-            {/* Start Game Button */}
-            <Button 
-              size="lg" 
-              className="w-full h-14 text-lg font-bold font-rajdhani bg-gradient-to-r from-green-500 via-green-400 to-green-500 hover:from-green-400 hover:via-green-300 hover:to-green-400 text-background hover:shadow-[0_0_32px_rgba(34,197,94,0.5)] transition-all duration-300 hover:scale-[1.02]"
-              onClick={() => navigate(`/bot-game?power=${masterPower[0]}`)}
-            >
-              CHALLENGE YOUR MASTER
-            </Button>
+            </Card>
           </div>
-        </Card>
 
-        {/* Challenge a Player Section */}
+          {/* RIGHT: Recent Gameplays - 40% (2 cols) */}
+          <div className="lg:col-span-2">
+            <RecentBotGames />
+          </div>
+        </div>
+
+        {/* Challenge Player + Quick Match - Side by Side */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Challenge a Player Section */}
         <Card className="p-8 bg-gradient-to-r from-primary/10 to-accent/10 border-2 border-primary/20 shadow-lg">
           <div className="space-y-6">
             <div className="text-center space-y-2">
@@ -413,54 +392,6 @@ const PlayNow = () => {
             </div>
           </div>
         </Card>
-
-        {/* More Options */}
-        <div className="space-y-4">
-          <h2 className="text-2xl font-bold font-rajdhani text-center">More Game Modes</h2>
-          <div className="grid gap-4 md:grid-cols-2">
-            {gameModes.map((mode, index) => (
-              <Card
-                key={index}
-                className="group hover:shadow-xl transition-all duration-300 cursor-pointer hover:-translate-y-1 animate-fade-in"
-                style={{ animationDelay: `${index * 100}ms` }}
-              >
-                <div className={`p-6 ${mode.gradient} rounded-lg`}>
-                  <div className="flex items-center justify-between">
-                    <div className="space-y-2">
-                      <div className="flex items-center gap-3">
-                        <mode.icon className="h-6 w-6 text-primary" />
-                        <h3 className="text-xl font-bold font-rajdhani">{mode.title}</h3>
-                      </div>
-                      <p className="text-sm text-muted-foreground">{mode.description}</p>
-                      <div className="flex items-center gap-2 text-sm">
-                        <Clock className="h-4 w-4" />
-                        <span>{mode.timeControl}</span>
-                      </div>
-                    </div>
-                    <Button
-                      size="lg"
-                      className="group-hover:scale-110 transition-transform"
-                      onClick={() => {
-                        if (mode.title === "Team Battle") {
-                          navigate('/challenges');
-                        } else {
-                          setSelectedTimeControl(mode.timeControl);
-                          joinQueue();
-                        }
-                      }}
-                    >
-                      Play
-                    </Button>
-                  </div>
-                </div>
-              </Card>
-            ))}
-          </div>
-        </div>
-
-        {/* Recent Bot Games Panel - Bottom Right */}
-        <div className="flex justify-end">
-          <RecentBotGames />
         </div>
       </div>
     </div>

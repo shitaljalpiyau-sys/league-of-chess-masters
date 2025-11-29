@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Slider } from "@/components/ui/slider";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { Clock, Zap, Loader2, Bot, Swords, Info, Star } from "lucide-react";
+import { Clock, Zap, Loader2, Bot, Swords, Info, Star, Activity } from "lucide-react";
 import coachAvatar from "@/assets/coach-avatar.png";
 import { GreenParticles } from "@/components/GreenParticles";
 import { useQuickMatch } from "@/hooks/useQuickMatch";
@@ -15,16 +15,28 @@ import { toast } from "sonner";
 import { RecentBotGames } from "@/components/RecentBotGames";
 import { useMasterProgress } from "@/hooks/useMasterProgress";
 import { Progress } from "@/components/ui/progress";
+import { MasterPerformanceDashboard } from "@/components/MasterPerformanceDashboard";
+import { getPerformanceMetrics } from "@/hooks/useBotGame";
 
 const PlayNow = () => {
   const [selectedTimeControl, setSelectedTimeControl] = useState("10+0");
   const [activeGames, setActiveGames] = useState<any[]>([]);
   const [challengeUsername, setChallengeUsername] = useState("");
   const [masterPower, setMasterPower] = useState([50]); // 0-100 power slider
+  const [showPerformanceDashboard, setShowPerformanceDashboard] = useState(false);
+  const [performanceMetrics, setPerformanceMetrics] = useState(getPerformanceMetrics());
   const { searching, joinQueue, leaveQueue } = useQuickMatch(selectedTimeControl);
   const { user, profile } = useAuth();
   const navigate = useNavigate();
   const { masterProgress, loading: masterLoading, getNextLevelXP } = useMasterProgress();
+
+  // Auto-update performance metrics every 5 seconds
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setPerformanceMetrics(getPerformanceMetrics());
+    }, 5000);
+    return () => clearInterval(interval);
+  }, []);
 
   // Calculate XP reward with smooth scaling (15 to 100)
   const getXPReward = () => {
@@ -377,6 +389,19 @@ const PlayNow = () => {
                       </div>
                     </div>
 
+                    {/* AI Diagnostics Button */}
+                    <div className="flex justify-center pt-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setShowPerformanceDashboard(true)}
+                        className="border-green-500/30 hover:border-green-500/60 hover:bg-green-500/10 text-xs"
+                      >
+                        <Activity className="h-3.5 w-3.5 mr-2" />
+                        AI Diagnostics
+                      </Button>
+                    </div>
+
                     {/* Power Slider Section */}
                     <div className="space-y-4 pt-3">
                       {/* Lock indicator when match is ongoing */}
@@ -539,6 +564,13 @@ const PlayNow = () => {
         </Card>
         </div>
       </div>
+
+      {/* Master Performance Dashboard Modal */}
+      <MasterPerformanceDashboard
+        open={showPerformanceDashboard}
+        onOpenChange={setShowPerformanceDashboard}
+        metrics={performanceMetrics}
+      />
     </div>
   );
 };

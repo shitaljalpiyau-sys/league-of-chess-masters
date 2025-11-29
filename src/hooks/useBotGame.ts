@@ -25,9 +25,47 @@ interface PerformanceLog {
   moveTime: number;
   depth: number;
   power: number;
+  cacheHit: boolean;
+  lightweight: boolean;
 }
 
 const performanceLog: PerformanceLog[] = [];
+const powerHistory: { power: number; level: number; timestamp: number }[] = [];
+
+// Export performance metrics getter
+export const getPerformanceMetrics = () => {
+  const recentLogs = performanceLog.slice(-20);
+  
+  // Average think time
+  const avgThinkTime = recentLogs.length > 0
+    ? recentLogs.reduce((sum, log) => sum + log.moveTime, 0) / recentLogs.length
+    : 0;
+  
+  // Cache hit rate
+  const cacheHits = recentLogs.filter(log => log.cacheHit).length;
+  const cacheHitRate = recentLogs.length > 0 ? (cacheHits / recentLogs.length) * 100 : 0;
+  
+  // Lightweight rate
+  const lightweightMoves = recentLogs.filter(log => log.lightweight).length;
+  const lightweightRate = recentLogs.length > 0 ? (lightweightMoves / recentLogs.length) * 100 : 0;
+  
+  // Depth distribution
+  const depthMap = new Map<number, number>();
+  recentLogs.forEach(log => {
+    depthMap.set(log.depth, (depthMap.get(log.depth) || 0) + 1);
+  });
+  const depthDistribution = Array.from(depthMap.entries())
+    .map(([depth, count]) => ({ depth, count }))
+    .sort((a, b) => a.depth - b.depth);
+  
+  return {
+    avgThinkTime,
+    cacheHitRate,
+    lightweightRate,
+    depthDistribution,
+    powerHistory: [...powerHistory]
+  };
+};
 
 // Piece values for evaluation
 const PIECE_VALUES: { [key: string]: number } = {
@@ -265,6 +303,17 @@ export const useBotGame = (power: Power = 50) => {
     const cached = moveCache.get(currentFen);
     if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
       console.log('🎯 Cache hit for position - cacheHit=true');
+      
+      // Log cache hit
+      performanceLog.push({
+        moveTime: 0,
+        depth: 0,
+        power,
+        cacheHit: true,
+        lightweight: false
+      });
+      if (performanceLog.length > 50) performanceLog.shift();
+      
       return { move: cached.bestMove, cacheHit: true };
     }
 
@@ -298,6 +347,18 @@ export const useBotGame = (power: Power = 50) => {
         // Still apply think time for realism
         const thinkTime = config.thinkTime[0] + Math.random() * (config.thinkTime[1] - config.thinkTime[0]);
         await new Promise(resolve => setTimeout(resolve, thinkTime));
+        
+        // Log performance
+        const calculationTime = Date.now() - startCalcTime;
+        performanceLog.push({
+          moveTime: calculationTime,
+          depth: 0,
+          power,
+          cacheHit: false,
+          lightweight: true
+        });
+        if (performanceLog.length > 50) performanceLog.shift();
+        
         return { move: quickMove, cacheHit: false };
       }
     }
@@ -423,9 +484,21 @@ export const useBotGame = (power: Power = 50) => {
     performanceLog.push({
       moveTime: calculationTime,
       depth: config.depth,
-      power
+      power,
+      cacheHit: false,
+      lightweight: false
     });
     if (performanceLog.length > 50) performanceLog.shift(); // Keep last 50 moves
+    
+    // Track power + level history
+    if (powerHistory.length === 0 || powerHistory[powerHistory.length - 1].power !== power) {
+      powerHistory.push({
+        power,
+        level: masterLevel,
+        timestamp: Date.now()
+      });
+      if (powerHistory.length > 20) powerHistory.shift(); // Keep last 20 entries
+    }
 
     // Log average think time
     const avgTime = performanceLog.reduce((sum, log) => sum + log.moveTime, 0) / performanceLog.length;

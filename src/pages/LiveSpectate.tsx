@@ -1,10 +1,12 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Eye, Users, Clock, Swords } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { motion } from "framer-motion";
+import { AuthModal } from "@/components/AuthModal";
 
 interface LiveGame {
   id: string;
@@ -29,7 +31,10 @@ interface LiveGame {
 
 const LiveSpectate = () => {
   const [liveGames, setLiveGames] = useState<LiveGame[]>([]);
+  const [authModalOpen, setAuthModalOpen] = useState(false);
+  const [pendingGameId, setPendingGameId] = useState<string | null>(null);
   const navigate = useNavigate();
+  const { user } = useAuth();
 
   useEffect(() => {
     fetchLiveGames();
@@ -98,8 +103,23 @@ const LiveSpectate = () => {
   };
 
   const watchGame = (gameId: string) => {
-    navigate(`/spectate/${gameId}`);
+    if (!user) {
+      // Not authenticated - open auth modal
+      setPendingGameId(gameId);
+      setAuthModalOpen(true);
+    } else {
+      // Authenticated - navigate to spectate
+      navigate(`/spectate/${gameId}`);
+    }
   };
+
+  // Handle successful authentication
+  useEffect(() => {
+    if (user && pendingGameId) {
+      navigate(`/spectate/${pendingGameId}`);
+      setPendingGameId(null);
+    }
+  }, [user, pendingGameId, navigate]);
 
   return (
     <motion.div 
@@ -202,6 +222,16 @@ const LiveSpectate = () => {
           </div>
         )}
       </div>
+
+      {/* Auth Modal */}
+      <AuthModal
+        isOpen={authModalOpen}
+        onClose={() => {
+          setAuthModalOpen(false);
+          setPendingGameId(null);
+        }}
+        mode="signup"
+      />
     </motion.div>
   );
 };

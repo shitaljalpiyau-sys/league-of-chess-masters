@@ -55,7 +55,22 @@ const Replay = () => {
       .single();
 
     if (historyData) {
-      setGame(historyData);
+      // Transform bot game data to match expected format
+      const transformedData = {
+        ...historyData,
+        white_player: {
+          username: historyData.player1_username,
+          rating: historyData.player1_rating_before,
+          class: historyData.player1_class
+        },
+        black_player: {
+          username: historyData.player2_username,
+          rating: historyData.player2_rating_before,
+          class: historyData.player2_class
+        }
+      };
+      
+      setGame(transformedData);
       
       // Parse PGN to get moves
       const tempChess = new Chess();
@@ -135,8 +150,9 @@ const Replay = () => {
     }
     
     // Update last move highlight
-    const moveObj = chess.history({ verbose: true })[currentMoveIndex];
-    if (moveObj) {
+    const history = chess.history({ verbose: true });
+    if (history.length > currentMoveIndex) {
+      const moveObj = history[currentMoveIndex];
       setLastMove({ from: moveObj.from as Square, to: moveObj.to as Square });
     }
     

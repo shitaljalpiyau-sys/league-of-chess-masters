@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Slider } from "@/components/ui/slider";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Clock, Trophy, Zap, Users, Loader2, Bot, Swords, Info, Star } from "lucide-react";
-import { CoachSilhouette } from "@/components/CoachSilhouette";
+import coachAvatar from "@/assets/coach-avatar.png";
 import { GreenParticles } from "@/components/GreenParticles";
 import { useQuickMatch } from "@/hooks/useQuickMatch";
 import { supabase } from "@/integrations/supabase/client";
@@ -203,9 +203,13 @@ const PlayNow = () => {
                   <div className="absolute inset-0 rounded-full bg-gradient-to-r from-green-500/20 via-green-400/20 to-green-500/20 blur-lg animate-[spin_10s_linear_infinite]" />
                   
                   {/* Circular frame */}
-                  <div className="relative w-32 h-32 rounded-full border-2 border-green-500/50 shadow-[0_0_24px_rgba(34,197,94,0.3)] bg-gradient-to-br from-green-500/10 via-background/50 to-green-500/10 flex items-center justify-center backdrop-blur-sm">
-                    {/* Anime Coach Silhouette */}
-                    <CoachSilhouette className="text-green-400 drop-shadow-[0_0_12px_rgba(34,197,94,0.6)]" size={64} />
+                  <div className="relative w-32 h-32 rounded-full border-2 border-green-500/50 shadow-[0_0_24px_rgba(34,197,94,0.3)] bg-gradient-to-br from-green-500/10 via-background/50 to-green-500/10 flex items-center justify-center backdrop-blur-sm overflow-hidden">
+                    {/* Anime Coach Avatar */}
+                    <img 
+                      src={coachAvatar} 
+                      alt="Chess Master Coach" 
+                      className="w-full h-full object-cover"
+                    />
                     
                     {/* Bot Badge */}
                     <div className="absolute -bottom-2 -right-2 w-8 h-8 rounded-full bg-gradient-to-br from-green-500 to-green-600 border-2 border-background/90 flex items-center justify-center shadow-lg">

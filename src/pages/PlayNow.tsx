@@ -30,7 +30,7 @@ const PlayNow = () => {
   const { user, profile } = useAuth();
   const navigate = useNavigate();
   const { masterProgress, loading: masterLoading, getNextLevelXP } = useMasterProgress();
-  const { learningData, toggleLearning } = useMasterLearning();
+  const { patterns, toggleLearning, learningEnabled } = useMasterLearning();
 
   // Auto-update performance metrics every 5 seconds
   useEffect(() => {
@@ -411,12 +411,12 @@ const PlayNow = () => {
                         <span className="text-sm font-medium text-muted-foreground">Master Learning</span>
                       </div>
                       <Button
-                        variant={learningData?.learning_enabled ? "default" : "outline"}
+                        variant={learningEnabled ? "default" : "outline"}
                         size="sm"
-                        onClick={() => toggleLearning(!learningData?.learning_enabled)}
+                        onClick={() => toggleLearning(!learningEnabled)}
                         className="h-8 px-3 text-xs"
                       >
-                        {learningData?.learning_enabled ? 'ON' : 'OFF'}
+                        {learningEnabled ? 'ON' : 'OFF'}
                       </Button>
                     </div>
 

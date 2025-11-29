@@ -3,26 +3,34 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { Chess } from 'chess.js';
 
-interface LearningData {
+interface LearningPattern {
   id: string;
   user_id: string;
-  openings_used: string[];
-  blunder_squares: string[];
-  weak_squares: string[];
-  preferred_moves: string[];
-  losing_patterns: string[];
-  win_patterns: string[];
-  average_attack_direction: 'kingside' | 'center' | 'queenside';
-  learning_enabled: boolean;
+  opening_code: string;
+  move_sequence: string;
+  frequency: number;
+  losses_with_sequence: number;
+  wins_with_sequence: number;
+  blunders_detected: number;
+  last_used_at: string;
+}
+
+interface AdaptiveHints {
+  baseDepth: number;
+  punishFactor: number;
+  denyList: string[];
+  weakSquares: string[];
+  targetOpening: string | null;
 }
 
 export const useMasterLearning = () => {
-  const [learningData, setLearningData] = useState<LearningData | null>(null);
+  const [patterns, setPatterns] = useState<LearningPattern[]>([]);
   const [loading, setLoading] = useState(true);
+  const [learningEnabled, setLearningEnabled] = useState(true);
   const { user } = useAuth();
 
-  // Fetch learning data
-  const fetchLearningData = useCallback(async () => {
+  // Fetch all learning patterns
+  const fetchPatterns = useCallback(async () => {
     if (!user) {
       setLoading(false);
       return;
@@ -32,163 +40,175 @@ export const useMasterLearning = () => {
       .from('master_learning')
       .select('*')
       .eq('user_id', user.id)
-      .maybeSingle();
+      .order('last_used_at', { ascending: false });
 
-    if (error && error.code !== 'PGRST116') {
-      console.error('Error fetching learning data:', error);
-      setLoading(false);
-      return;
-    }
-
-    if (!data) {
-      // Create initial learning data
-      const { data: newData, error: createError } = await supabase
-        .from('master_learning')
-        .insert({
-          user_id: user.id,
-          openings_used: [],
-          blunder_squares: [],
-          weak_squares: [],
-          preferred_moves: [],
-          losing_patterns: [],
-          win_patterns: [],
-          average_attack_direction: 'center',
-          learning_enabled: true
-        })
-        .select()
-        .single();
-
-      if (createError) {
-        console.error('Error creating learning data:', createError);
-      } else {
-        setLearningData(newData as LearningData);
-      }
+    if (error) {
+      console.error('Error fetching learning patterns:', error);
     } else {
-      setLearningData(data as LearningData);
+      setPatterns(data || []);
     }
 
     setLoading(false);
   }, [user]);
 
   useEffect(() => {
-    fetchLearningData();
-  }, [fetchLearningData]);
+    fetchPatterns();
+  }, [fetchPatterns]);
 
-  // Detect opening from first 6 moves
+  // Detect ECO opening code from moves
   const detectOpening = useCallback((moves: string[]): string => {
-    if (moves.length < 6) return 'unknown';
+    if (moves.length < 4) return 'UNKNOWN';
     
-    const opening = moves.slice(0, 6).join(' ');
+    const sequence = moves.slice(0, 4).join(' ');
     
-    // Common opening patterns
-    if (opening.includes('e4 e5')) return 'open_game';
-    if (opening.includes('d4 d5')) return 'closed_game';
-    if (opening.includes('e4 c5')) return 'sicilian';
-    if (opening.includes('e4 e6')) return 'french';
-    if (opening.includes('e4 c6')) return 'caro_kann';
-    if (opening.includes('d4 Nf6')) return 'indian_defense';
-    if (opening.includes('Nf3 Nf6')) return 'reti';
+    // Common ECO patterns
+    if (sequence.includes('e4 e5 Nf3 Nc6')) return 'C50'; // Italian Game
+    if (sequence.includes('e4 c5')) return 'B20'; // Sicilian Defense
+    if (sequence.includes('d4 d5')) return 'D00'; // Queen's Pawn Game
+    if (sequence.includes('e4 e6')) return 'C00'; // French Defense
+    if (sequence.includes('e4 c6')) return 'B10'; // Caro-Kann Defense
+    if (sequence.includes('d4 Nf6 c4')) return 'E00'; // Indian Defense
+    if (sequence.includes('Nf3 Nf6')) return 'A04'; // Reti Opening
     
-    return 'other';
+    return 'OTHER';
   }, []);
 
-  // Analyze attack direction
-  const analyzeAttackDirection = useCallback((moves: string[]): 'kingside' | 'center' | 'queenside' => {
-    let kingsideCount = 0;
-    let queensideCount = 0;
-    let centerCount = 0;
-
-    const kingsideSquares = ['f', 'g', 'h'];
-    const queensideSquares = ['a', 'b', 'c'];
-    const centerSquares = ['d', 'e'];
-
-    moves.forEach(move => {
-      const file = move.charAt(0);
-      if (kingsideSquares.includes(file)) kingsideCount++;
-      else if (queensideSquares.includes(file)) queensideCount++;
-      else if (centerSquares.includes(file)) centerCount++;
-    });
-
-    if (kingsideCount > queensideCount && kingsideCount > centerCount) return 'kingside';
-    if (queensideCount > kingsideCount && queensideCount > centerCount) return 'queenside';
-    return 'center';
-  }, []);
-
-  // Record game data
-  const recordGameData = useCallback(async (
+  // Record game pattern
+  const recordPattern = useCallback(async (
     moves: string[],
     blunderSquares: string[],
-    weakPieces: string[],
     result: 'win' | 'loss' | 'draw'
   ) => {
-    if (!user || !learningData || !learningData.learning_enabled) return;
+    if (!user || !learningEnabled || moves.length < 4) return;
 
     const opening = detectOpening(moves);
-    const attackDirection = analyzeAttackDirection(moves);
-    
-    const pattern = moves.slice(-5).join(' '); // Last 5 moves as pattern
+    const moveSequence = moves.slice(0, 4).join(' ');
 
-    const updates: Partial<LearningData> = {
-      openings_used: [...new Set([...learningData.openings_used, opening])].slice(-20),
-      blunder_squares: [...new Set([...learningData.blunder_squares, ...blunderSquares])].slice(-30),
-      weak_squares: [...new Set([...learningData.weak_squares, ...weakPieces])].slice(-30),
-      preferred_moves: [...learningData.preferred_moves, ...moves].slice(-50),
-      average_attack_direction: attackDirection
-    };
-
-    if (result === 'loss') {
-      updates.losing_patterns = [...new Set([...learningData.losing_patterns, pattern])].slice(-15);
-    } else if (result === 'win') {
-      updates.win_patterns = [...new Set([...learningData.win_patterns, pattern])].slice(-15);
-    }
-
-    const { error } = await supabase
+    // Check if pattern exists
+    const { data: existing } = await supabase
       .from('master_learning')
-      .update(updates)
-      .eq('user_id', user.id);
+      .select('*')
+      .eq('user_id', user.id)
+      .eq('move_sequence', moveSequence)
+      .maybeSingle();
 
-    if (error) {
-      console.error('Error updating learning data:', error);
+    if (existing) {
+      // Update existing pattern
+      const { error } = await supabase
+        .from('master_learning')
+        .update({
+          frequency: existing.frequency + 1,
+          losses_with_sequence: result === 'loss' ? existing.losses_with_sequence + 1 : existing.losses_with_sequence,
+          wins_with_sequence: result === 'win' ? existing.wins_with_sequence + 1 : existing.wins_with_sequence,
+          blunders_detected: existing.blunders_detected + blunderSquares.length,
+          last_used_at: new Date().toISOString()
+        })
+        .eq('id', existing.id);
+
+      if (error) console.error('Error updating pattern:', error);
     } else {
-      await fetchLearningData();
+      // Create new pattern
+      const { error } = await supabase
+        .from('master_learning')
+        .insert({
+          user_id: user.id,
+          opening_code: opening,
+          move_sequence: moveSequence,
+          frequency: 1,
+          losses_with_sequence: result === 'loss' ? 1 : 0,
+          wins_with_sequence: result === 'win' ? 1 : 0,
+          blunders_detected: blunderSquares.length
+        });
+
+      if (error) console.error('Error creating pattern:', error);
     }
-  }, [user, learningData, detectOpening, analyzeAttackDirection, fetchLearningData]);
+
+    await fetchPatterns();
+  }, [user, learningEnabled, detectOpening, fetchPatterns]);
+
+  // Get adaptive hints for Master AI
+  const getAdaptiveHints = useCallback((currentMoves: string[]): AdaptiveHints => {
+    if (!learningEnabled || patterns.length === 0) {
+      return {
+        baseDepth: 0,
+        punishFactor: 0,
+        denyList: [],
+        weakSquares: [],
+        targetOpening: null
+      };
+    }
+
+    const currentSequence = currentMoves.slice(0, 4).join(' ');
+    const currentOpening = detectOpening(currentMoves);
+
+    // Find repeated tricks (patterns that beat Master 2+ times)
+    const denyList = patterns
+      .filter(p => p.losses_with_sequence >= 2)
+      .map(p => p.move_sequence);
+
+    // Calculate punish factor
+    let punishFactor = 0;
+    
+    // Check if current sequence is a repeated trick
+    const repeatedTrick = patterns.find(p => p.move_sequence === currentSequence && p.losses_with_sequence >= 2);
+    if (repeatedTrick) {
+      punishFactor += 4; // Significantly increase depth for known tricks
+    }
+
+    // Check if player frequently uses this opening and wins
+    const openingPattern = patterns.find(p => p.opening_code === currentOpening);
+    if (openingPattern && openingPattern.wins_with_sequence > openingPattern.losses_with_sequence) {
+      punishFactor += 2; // Increase depth against successful openings
+    }
+
+    // Add punish factor for detected blunders
+    const blunderProne = patterns.filter(p => p.blunders_detected >= 3).length;
+    if (blunderProne > 0) {
+      punishFactor += 1;
+    }
+
+    // Identify weak squares (squares where player blunders most)
+    const weakSquares: string[] = [];
+    // This would be enhanced with actual square tracking in a full implementation
+
+    return {
+      baseDepth: 0,
+      punishFactor,
+      denyList,
+      weakSquares,
+      targetOpening: openingPattern ? openingPattern.opening_code : null
+    };
+  }, [learningEnabled, patterns, detectOpening]);
 
   // Toggle learning
-  const toggleLearning = useCallback(async (enabled: boolean) => {
+  const toggleLearning = useCallback((enabled: boolean) => {
+    setLearningEnabled(enabled);
+  }, []);
+
+  // Clear all learning data
+  const clearLearning = useCallback(async () => {
     if (!user) return;
 
     const { error } = await supabase
       .from('master_learning')
-      .update({ learning_enabled: enabled })
+      .delete()
       .eq('user_id', user.id);
 
     if (error) {
-      console.error('Error toggling learning:', error);
+      console.error('Error clearing learning data:', error);
     } else {
-      await fetchLearningData();
+      await fetchPatterns();
     }
-  }, [user, fetchLearningData]);
-
-  // Get AI strategy hints
-  const getAIHints = useCallback(() => {
-    if (!learningData || !learningData.learning_enabled) return null;
-
-    return {
-      targetSquares: learningData.weak_squares,
-      avoidOpenings: learningData.openings_used,
-      exploitPatterns: learningData.losing_patterns,
-      attackDirection: learningData.average_attack_direction === 'kingside' ? 'queenside' : 
-                       learningData.average_attack_direction === 'queenside' ? 'kingside' : 'center'
-    };
-  }, [learningData]);
+  }, [user, fetchPatterns]);
 
   return {
-    learningData,
+    patterns,
     loading,
-    recordGameData,
+    learningEnabled,
+    recordPattern,
+    getAdaptiveHints,
     toggleLearning,
-    getAIHints,
-    refreshLearning: fetchLearningData
+    clearLearning,
+    refreshPatterns: fetchPatterns
   };
 };

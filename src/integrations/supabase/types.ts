@@ -587,46 +587,40 @@ export type Database = {
       }
       master_learning: {
         Row: {
-          average_attack_direction: string | null
-          blunder_squares: Json | null
-          created_at: string | null
+          blunders_detected: number
+          created_at: string
+          frequency: number
           id: string
-          learning_enabled: boolean | null
-          losing_patterns: Json | null
-          openings_used: Json | null
-          preferred_moves: Json | null
-          updated_at: string | null
+          last_used_at: string
+          losses_with_sequence: number
+          move_sequence: string
+          opening_code: string
           user_id: string
-          weak_squares: Json | null
-          win_patterns: Json | null
+          wins_with_sequence: number
         }
         Insert: {
-          average_attack_direction?: string | null
-          blunder_squares?: Json | null
-          created_at?: string | null
+          blunders_detected?: number
+          created_at?: string
+          frequency?: number
           id?: string
-          learning_enabled?: boolean | null
-          losing_patterns?: Json | null
-          openings_used?: Json | null
-          preferred_moves?: Json | null
-          updated_at?: string | null
+          last_used_at?: string
+          losses_with_sequence?: number
+          move_sequence: string
+          opening_code: string
           user_id: string
-          weak_squares?: Json | null
-          win_patterns?: Json | null
+          wins_with_sequence?: number
         }
         Update: {
-          average_attack_direction?: string | null
-          blunder_squares?: Json | null
-          created_at?: string | null
+          blunders_detected?: number
+          created_at?: string
+          frequency?: number
           id?: string
-          learning_enabled?: boolean | null
-          losing_patterns?: Json | null
-          openings_used?: Json | null
-          preferred_moves?: Json | null
-          updated_at?: string | null
+          last_used_at?: string
+          losses_with_sequence?: number
+          move_sequence?: string
+          opening_code?: string
           user_id?: string
-          weak_squares?: Json | null
-          win_patterns?: Json | null
+          wins_with_sequence?: number
         }
         Relationships: []
       }

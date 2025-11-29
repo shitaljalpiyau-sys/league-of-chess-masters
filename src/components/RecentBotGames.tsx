@@ -5,7 +5,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
-import { Trophy, Calendar } from "lucide-react";
+import { Trophy, Calendar, Loader2 } from "lucide-react";
 import { format } from "date-fns";
 
 interface GameRecord {
@@ -19,6 +19,7 @@ interface GameRecord {
 
 export const RecentBotGames = () => {
   const [games, setGames] = useState<GameRecord[]>([]);
+  const [loading, setLoading] = useState(true);
   const { user } = useAuth();
   const navigate = useNavigate();
 
@@ -30,6 +31,7 @@ export const RecentBotGames = () => {
   const fetchRecentGames = async () => {
     if (!user) return;
 
+    setLoading(true);
     const { data, error } = await supabase
       .from('games')
       .select('*')
@@ -59,6 +61,7 @@ export const RecentBotGames = () => {
 
       setGames(gamesWithXP);
     }
+    setLoading(false);
   };
 
   const getResultText = (game: GameRecord) => {
@@ -79,25 +82,30 @@ export const RecentBotGames = () => {
   };
 
   return (
-    <Card className="p-6 bg-[rgba(20,20,25,0.85)] border-[1.5px] border-green-500/40 shadow-[0_8px_32px_rgba(34,197,94,0.15)] rounded-2xl backdrop-blur-md h-[600px] flex flex-col">
-      <div className="mb-4">
-        <h2 className="text-2xl font-bold font-rajdhani text-green-400 drop-shadow-[0_0_12px_rgba(34,197,94,0.4)]">
+    <Card className="p-6 md:p-8 bg-[rgba(20,20,25,0.85)] border-[1.5px] border-green-500/40 shadow-[0_8px_32px_rgba(34,197,94,0.15),0_0_1px_rgba(34,197,94,0.3)] rounded-2xl backdrop-blur-md h-full flex flex-col">
+      <div className="mb-4 md:mb-6">
+        <h2 className="text-2xl md:text-3xl font-bold font-rajdhani text-green-400 drop-shadow-[0_0_12px_rgba(34,197,94,0.4)] tracking-wide">
           Recent Gameplays
         </h2>
-        <p className="text-xs text-muted-foreground/70 mt-1">
+        <p className="text-xs text-muted-foreground/80 mt-1">
           Your match history and results
         </p>
       </div>
 
-      <ScrollArea className="flex-1 pr-4">
-        <div className="space-y-3">
-          {games.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground/60">
-              <p className="text-sm">No games played yet</p>
-              <p className="text-xs mt-1">Challenge the Master to start!</p>
-            </div>
-          ) : (
-            games.map((game) => {
+      <ScrollArea className="flex-1 pr-2 md:pr-4">
+        {loading ? (
+          <div className="flex items-center justify-center py-12">
+            <Loader2 className="h-8 w-8 animate-spin text-green-400" />
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {games.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground/60">
+                <p className="text-sm">No games played yet</p>
+                <p className="text-xs mt-1">Challenge the Master to start!</p>
+              </div>
+            ) : (
+              games.map((game) => {
               const resultText = getResultText(game);
               const resultColor = getResultColor(resultText);
 
@@ -136,10 +144,11 @@ export const RecentBotGames = () => {
                     </Button>
                   </div>
                 </Card>
-              );
-            })
-          )}
-        </div>
+                );
+              })
+            )}
+          </div>
+        )}
       </ScrollArea>
     </Card>
   );

@@ -10,6 +10,7 @@ import { UniversalChessBoard } from '@/components/shared/UniversalChessBoard';
 import type { Square } from 'chess.js';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { motion, AnimatePresence } from 'framer-motion';
+import { toast } from 'sonner';
 
 const BotGame = () => {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -20,7 +21,7 @@ const BotGame = () => {
   const is3DMode = userPreferences?.is_3d_mode || false;
   const isMobile = useIsMobile();
   
-  const { chess, playerColor, isPlayerTurn, makeMove, resetGame, isThinking, gameStatus, lastMove: botLastMove, gameId, cacheHit } = useBotGame(power);
+  const { chess, playerColor, isPlayerTurn, makeMove, resetGame, isThinking, gameStatus, lastMove: botLastMove, gameId, cacheHit, adaptationMessage, ddaPowerAdjustment } = useBotGame(power);
   
   const [selectedSquare, setSelectedSquare] = useState<Square | null>(null);
   const [legalMoves, setLegalMoves] = useState<Square[]>([]);
@@ -46,6 +47,16 @@ const BotGame = () => {
     window.addEventListener('keydown', handleEscape);
     return () => window.removeEventListener('keydown', handleEscape);
   }, [isFullScreen]);
+
+  // Show DDA adaptation toast
+  useEffect(() => {
+    if (adaptationMessage) {
+      toast.info(adaptationMessage, {
+        duration: 3000,
+        className: 'bg-green-500/10 border-green-500/30'
+      });
+    }
+  }, [adaptationMessage]);
 
   const handleSquareClick = (square: Square) => {
     if (!isPlayerTurn || isThinking) return;
@@ -105,6 +116,26 @@ const BotGame = () => {
       <div className="fixed inset-0 w-screen h-screen bg-background flex flex-col items-center justify-center p-0 m-0 overflow-hidden z-50 transition-all duration-300">
         {/* Full-screen controls */}
         <div className="absolute top-4 right-4 flex items-center gap-2 z-10">
+          {cacheHit && (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.8 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0 }}
+              className="flex items-center gap-2 px-3 py-2 rounded-lg bg-green-500/20 border border-green-500/50 shadow-[0_0_16px_rgba(34,197,94,0.3)]"
+            >
+              <Zap className="h-4 w-4 text-green-400 animate-pulse" />
+              <span className="text-xs font-bold text-green-400">Instant Move</span>
+            </motion.div>
+          )}
+          
+          {ddaPowerAdjustment !== 0 && (
+            <div className="px-3 py-2 rounded-lg bg-primary/10 border border-primary/30">
+              <span className="text-xs font-medium text-primary">
+                Power {ddaPowerAdjustment > 0 ? '+' : ''}{ddaPowerAdjustment}
+              </span>
+            </div>
+          )}
+
           <Button 
             variant="outline" 
             size="icon"
@@ -382,6 +413,20 @@ const BotGame = () => {
             </motion.div>
           )}
         </AnimatePresence>
+
+        {/* DDA Power Adjustment Indicator */}
+        {ddaPowerAdjustment !== 0 && (
+          <div className="fixed top-24 right-4 z-40">
+            <Card className="p-3 bg-primary/10 backdrop-blur-md border border-primary/30">
+              <div className="flex items-center gap-2">
+                <Target className="h-4 w-4 text-primary" />
+                <span className="text-sm font-medium text-primary">
+                  Power {ddaPowerAdjustment > 0 ? '+' : ''}{ddaPowerAdjustment}
+                </span>
+              </div>
+            </Card>
+          </div>
+        )}
 
         <div className={`grid grid-cols-1 ${isMobile ? '' : 'lg:grid-cols-3'} gap-4 sm:gap-6`}>
           {/* Chessboard - Better responsive sizing */}

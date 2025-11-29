@@ -107,29 +107,35 @@ interface DifficultyConfig {
 }
 
 // Convert power level (0-100) to difficulty configuration
-const getPowerConfig = (power: Power, masterLevel: number = 1): DifficultyConfig => {
+const getPowerConfig = (
+  power: Power, 
+  masterLevel: number = 1, 
+  ddaPowerAdj: number = 0, 
+  ddaDepthAdj: number = 0
+): DifficultyConfig => {
+  // Apply DDA power adjustment
+  const adjustedPower = Math.max(0, Math.min(100, power + ddaPowerAdj));
+  
   // Non-linear power scaling for more dramatic differences
-  const normalizedPower = power / 100;
+  const normalizedPower = adjustedPower / 100;
   const scaledPower = Math.pow(normalizedPower, 1.5); // Non-linear curve
   
-  // Dynamic depth scaling: combines POWER + MASTER LEVEL
-  // depth = floor(power / 5) + floor(master_level / 4) + baseDepth
+  // Dynamic depth scaling: combines POWER + MASTER LEVEL + DDA
   const baseDepth = 2;
-  const powerDepth = Math.floor(power / 5);
+  const powerDepth = Math.floor(adjustedPower / 5);
   const masterDepth = Math.floor(masterLevel / 4);
-  const depth = Math.max(2, Math.min(24, baseDepth + powerDepth + masterDepth));
+  const depth = Math.max(2, Math.min(24, baseDepth + powerDepth + masterDepth + ddaDepthAdj));
   
   // MultiPV: 4 at low power, 1 at high power
-  const multipv = power <= 33 ? 4 : power <= 66 ? 3 : 1;
+  const multipv = adjustedPower <= 33 ? 4 : adjustedPower <= 66 ? 3 : 1;
   
   // Randomness: high at low power, zero at high power
   const randomness = Math.max(0, 0.6 - (scaledPower * 0.6));
   
   // Blunder chance: high at low power, zero above 50
-  const blunderChance = power <= 50 ? Math.max(0, 0.45 - (power / 50) * 0.45) : 0;
+  const blunderChance = adjustedPower <= 50 ? Math.max(0, 0.45 - (adjustedPower / 50) * 0.45) : 0;
   
   // Think time: scales from 100-250ms to 1500-3000ms
-  // Reduce randomness for high-level Masters (more calm and controlled)
   const varianceReduction = Math.min(0.7, masterLevel * 0.02);
   const baseMinThink = 100 + scaledPower * 1400;
   const baseMaxThink = 250 + scaledPower * 2750;
@@ -142,7 +148,7 @@ const getPowerConfig = (power: Power, masterLevel: number = 1): DifficultyConfig
     randomness,
     blunderChance,
     thinkTime: [minThink, maxThink],
-    eloRange: `Power ${power}`
+    eloRange: `Power ${adjustedPower}${ddaPowerAdj !== 0 ? ` (${ddaPowerAdj > 0 ? '+' : ''}${ddaPowerAdj})` : ''}`
   };
 };
 
@@ -179,6 +185,38 @@ export const useBotGame = (power: Power = 50) => {
   
   const [blunderSquares, setBlunderSquares] = useState<string[]>([]);
   const [weakPieces, setWeakPieces] = useState<string[]>([]);
+  
+  // DDA tracking
+  const [recentBlunders, setRecentBlunders] = useState<number[]>([]); // Move numbers where blunders occurred
+  const [recentEvaluations, setRecentEvaluations] = useState<number[]>([]); // Last 6 evaluations
+  const [ddaPowerAdjustment, setDdaPowerAdjustment] = useState(0);
+  const [ddaDepthAdjustment, setDdaDepthAdjustment] = useState(0);
+  const [adaptationMessage, setAdaptationMessage] = useState<string | null>(null);
+
+  // DDA: Apply adjustments based on streaks
+  useEffect(() => {
+    let powerAdj = 0;
+    let message = null;
+
+    // 3+ wins → increase power
+    if (winStreak >= 3) {
+      powerAdj = 8;
+      message = "Master has adapted to your play.";
+    }
+    // 3+ losses → reduce power
+    else if (lossStreak >= 3) {
+      powerAdj = -6;
+      message = "Master has adapted to your play.";
+    }
+
+    if (powerAdj !== ddaPowerAdjustment) {
+      setDdaPowerAdjustment(powerAdj);
+      if (message && powerAdj !== 0) {
+        setAdaptationMessage(message);
+        setTimeout(() => setAdaptationMessage(null), 3000);
+      }
+    }
+  }, [winStreak, lossStreak, ddaPowerAdjustment]);
 
   // Enhanced board evaluation with positional awareness
   const evaluateBoard = useCallback((game: Chess): number => {
@@ -325,7 +363,7 @@ export const useBotGame = (power: Power = 50) => {
     // Cleanup old cache entries
     cleanupCache();
 
-    const baseConfig = getPowerConfig(power, masterLevel);
+    const baseConfig = getPowerConfig(power, masterLevel, ddaPowerAdjustment, ddaDepthAdjustment);
     const adaptive = getAdaptiveAdjustment();
     const masterBoost = getMasterLevelBoost();
     
@@ -603,11 +641,52 @@ export const useBotGame = (power: Power = 50) => {
 
       if (!move) return false;
 
+      const moveNumber = newGame.history().length;
+
       // Track player patterns for Master Learning
       if (move.captured) {
         setBlunderSquares(prev => [...prev, to]);
       }
       setWeakPieces(prev => [...prev, from]);
+
+      // DDA: Track position evaluation for strong/weak play detection
+      const currentEval = evaluateBoard(newGame);
+      setRecentEvaluations(prev => {
+        const updated = [...prev, currentEval];
+        return updated.slice(-6); // Keep last 6
+      });
+
+      // DDA: Detect blunders (significant eval drop)
+      if (recentEvaluations.length > 0) {
+        const lastEval = recentEvaluations[recentEvaluations.length - 1];
+        const evalDrop = lastEval - currentEval;
+        
+        if (evalDrop > 200) { // Significant blunder
+          setRecentBlunders(prev => {
+            const updated = [...prev, moveNumber];
+            
+            // Check if 2 blunders in last 4 moves
+            const recentMoves = updated.filter(m => moveNumber - m <= 4);
+            if (recentMoves.length >= 2 && ddaDepthAdjustment !== -2) {
+              setDdaDepthAdjustment(-2);
+              setAdaptationMessage("Master has adapted to your play.");
+              setTimeout(() => setAdaptationMessage(null), 3000);
+            }
+            
+            return updated.slice(-10); // Keep last 10 blunders
+          });
+        }
+      }
+
+      // DDA: Detect strong play (eval > +150 for 6 turns)
+      if (recentEvaluations.length === 6) {
+        const allStrong = recentEvaluations.every(e => e > 150);
+        if (allStrong && ddaDepthAdjustment !== 2) {
+          setDdaDepthAdjustment(2);
+          setAdaptationMessage("Master has adapted to your play.");
+          setTimeout(() => setAdaptationMessage(null), 3000);
+        }
+      }
 
       // Update last move state for highlighting (BLUE for player moves)
       setLastMove({ 
@@ -768,6 +847,9 @@ export const useBotGame = (power: Power = 50) => {
     engineReady: true,
     lastMove,
     gameId,
-    cacheHit
+    cacheHit,
+    adaptationMessage,
+    ddaPowerAdjustment,
+    ddaDepthAdjustment
   };
 };

@@ -20,7 +20,7 @@ const PlayNow = () => {
   const [challengeUsername, setChallengeUsername] = useState("");
   const [masterPower, setMasterPower] = useState([50]); // 0-100 power slider
   const { searching, joinQueue, leaveQueue } = useQuickMatch(selectedTimeControl);
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const navigate = useNavigate();
 
   // Calculate XP reward with smooth scaling (15 to 100)
@@ -34,10 +34,20 @@ const PlayNow = () => {
     return Math.round(scaledXP);
   };
 
-  // Get AI behavior stars (1-5 based on power)
+  // Get AI behavior stars (1-5 based on power with proper thresholds)
   const getAIStars = () => {
     const power = masterPower[0];
-    return Math.ceil((power / 100) * 5);
+    if (power < 25) return 1;
+    if (power < 50) return 2;
+    if (power < 75) return 3;
+    if (power < 90) return 4;
+    return 5;
+  };
+
+  // Calculate Master Level based on player level
+  const getMasterLevel = () => {
+    if (!profile) return 1;
+    return Math.floor((profile.level || 1) * 1.3);
   };
 
   const handleSendChallenge = async () => {
@@ -200,6 +210,9 @@ const PlayNow = () => {
                     </div>
 
                     <div className="text-center space-y-3">
+                      <p className="text-sm font-bold text-green-400/90 uppercase tracking-wider">
+                        MASTER LEVEL: {getMasterLevel()}
+                      </p>
                       <p className="text-lg font-bold text-green-400">Current Power: {masterPower[0]}</p>
                       <div className="flex items-center justify-center gap-2">
                         <span className="text-xs text-muted-foreground/70">AI Behavior:</span>
@@ -263,15 +276,15 @@ const PlayNow = () => {
                           </div>
                         </div>
 
-                        {/* Micro-description */}
-                        <div className="text-center space-y-0.5">
-                          <p className="text-[10px] font-bold text-green-400/90 uppercase tracking-wider">
-                            Elite Strategy Model v1.2
-                          </p>
-                          <p className="text-[9px] text-muted-foreground/70 max-w-[140px] leading-tight">
-                            Adaptive intelligence based on your power setting
-                          </p>
-                        </div>
+                    {/* Micro-description */}
+                    <div className="text-center space-y-1">
+                      <p className="text-[10px] font-bold text-green-400/90 uppercase tracking-wider">
+                        MASTER LEVEL: {getMasterLevel()}
+                      </p>
+                      <p className="text-[9px] text-muted-foreground/70 max-w-[140px] leading-tight">
+                        Adaptive intelligence based on your power setting
+                      </p>
+                    </div>
                       </div>
                         
                       {/* Power Section + Stats - 60% */}

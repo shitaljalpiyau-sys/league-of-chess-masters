@@ -153,7 +153,7 @@ const BotGame = () => {
               <div className="flex items-center gap-3">
                 <Brain className="h-5 w-5 text-primary animate-pulse" />
                 <div className="flex items-center gap-1">
-                  <p className="text-sm text-muted-foreground">Bot is thinking</p>
+                  <p className="text-sm text-muted-foreground">Master is thinking</p>
                   <span className="flex gap-0.5">
                     <span className="w-1 h-1 bg-primary rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></span>
                     <span className="w-1 h-1 bg-primary rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></span>
@@ -327,7 +327,7 @@ const BotGame = () => {
               <div className="flex items-center justify-center gap-3">
                 <Brain className="h-5 w-5 text-primary animate-pulse" />
                 <div className="flex items-center gap-1">
-                  <p className="text-sm text-muted-foreground">Bot is thinking</p>
+                  <p className="text-sm text-muted-foreground">Master is thinking</p>
                   <span className="flex gap-0.5">
                     <span className="w-1.5 h-1.5 bg-primary rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></span>
                     <span className="w-1.5 h-1.5 bg-primary rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></span>

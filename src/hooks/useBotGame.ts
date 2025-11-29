@@ -52,8 +52,10 @@ const getPowerConfig = (power: Power): DifficultyConfig => {
   const normalizedPower = power / 100;
   const scaledPower = Math.pow(normalizedPower, 1.5); // Non-linear curve
   
-  // Depth: scales from 2 to 24
-  const depth = Math.max(2, Math.min(24, Math.round(2 + scaledPower * 22)));
+  // Depth: improved formula - depth = floor(power / 5) + baseDepth
+  // Power 0 → depth 2, Power 100 → depth 22
+  const baseDepth = 2;
+  const depth = Math.floor(power / 5) + baseDepth;
   
   // MultiPV: 4 at low power, 1 at high power
   const multipv = power <= 33 ? 4 : power <= 66 ? 3 : 1;

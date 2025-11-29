@@ -6,6 +6,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useXPSystem } from '@/hooks/useXPSystem';
 import { useBotAdaptiveDifficulty } from '@/hooks/useBotAdaptiveDifficulty';
 import { useMasterProgress } from '@/hooks/useMasterProgress';
+import { useMasterLearning } from '@/hooks/useMasterLearning';
 
 type Power = number; // 0-100 continuous power level
 
@@ -174,6 +175,10 @@ export const useBotGame = (power: Power = 50) => {
   const { awardMatchXP } = useXPSystem();
   const { recordGame, getAdaptiveAdjustment, detectTrick, winStreak, lossStreak } = useBotAdaptiveDifficulty();
   const { awardMasterXP, getMasterLevelBoost } = useMasterProgress();
+  const { recordGameData, getAIHints, learningData } = useMasterLearning();
+  
+  const [blunderSquares, setBlunderSquares] = useState<string[]>([]);
+  const [weakPieces, setWeakPieces] = useState<string[]>([]);
 
   // Enhanced board evaluation with positional awareness
   const evaluateBoard = useCallback((game: Chess): number => {
@@ -374,6 +379,12 @@ export const useBotGame = (power: Power = 50) => {
       config.blunderChance = 0;
     }
 
+    // MASTER LEARNING: Apply learned patterns to AI strategy
+    const aiHints = getAIHints();
+    if (aiHints && learningData?.learning_enabled) {
+      console.log('🧠 Master Learning active - adapting strategy');
+    }
+
     // Generate 2 candidate moves for anti-lag fallback
     const candidateMoves: Move[] = [];
     if (moves.length > 0) {
@@ -416,6 +427,36 @@ export const useBotGame = (power: Power = 50) => {
 
     // Sort by score (best first)
     scoredMoves.sort((a, b) => b.score - a.score);
+
+    // MASTER LEARNING: Apply learned pattern exploitation
+    if (aiHints && learningData?.learning_enabled) {
+      // Prioritize moves targeting player's weak squares
+      if (aiHints.targetSquares.length > 0) {
+        const weakSquareMoves = scoredMoves.filter(sm => 
+          aiHints.targetSquares.includes(sm.move.to)
+        );
+        
+        if (weakSquareMoves.length > 0 && Math.random() < 0.4) {
+          console.log('🎯 Targeting weak square:', weakSquareMoves[0].move.to);
+          return { move: weakSquareMoves[0].move, cacheHit: false };
+        }
+      }
+
+      // Attack in opposite direction to player's preference
+      const attackFiles: string[] = 
+        aiHints.attackDirection === 'kingside' ? ['f', 'g', 'h'] :
+        aiHints.attackDirection === 'queenside' ? ['a', 'b', 'c'] :
+        ['d', 'e'];
+
+      const directionMoves = scoredMoves.filter(sm => 
+        attackFiles.includes(sm.move.to.charAt(0))
+      );
+      
+      if (directionMoves.length > 0 && Math.random() < 0.3) {
+        console.log('⚔️ Attacking', aiHints.attackDirection, 'flank');
+        return { move: directionMoves[0].move, cacheHit: false };
+      }
+    }
 
     // DEBUG LOGGING (adaptive difficulty feedback)
     if (process.env.NODE_ENV === 'development') {
@@ -562,6 +603,12 @@ export const useBotGame = (power: Power = 50) => {
 
       if (!move) return false;
 
+      // Track player patterns for Master Learning
+      if (move.captured) {
+        setBlunderSquares(prev => [...prev, to]);
+      }
+      setWeakPieces(prev => [...prev, from]);
+
       // Update last move state for highlighting (BLUE for player moves)
       setLastMove({ 
         from: move.from as Square, 
@@ -667,6 +714,11 @@ export const useBotGame = (power: Power = 50) => {
         }
       }, 500);
       
+      // Record learning data for Master AI
+      const moveHistory = chess.history();
+      const gameResult = playerWon ? 'win' : isDraw ? 'draw' : 'loss';
+      await recordGameData(moveHistory, blunderSquares, weakPieces, gameResult as 'win' | 'loss' | 'draw');
+      
       const fenHistory: string[] = [new Chess().fen()];
       const tempChess = new Chess();
       const history = chess.history();
@@ -702,7 +754,7 @@ export const useBotGame = (power: Power = 50) => {
     };
     
     saveGameToHistory();
-  }, [chess.isGameOver(), power, user, playerColor, awardMatchXP, refreshProfile, recordGame, awardMasterXP]);
+  }, [chess.isGameOver(), power, user, playerColor, awardMatchXP, refreshProfile, recordGame, awardMasterXP, recordGameData, blunderSquares, weakPieces]);
 
   return {
     chess,

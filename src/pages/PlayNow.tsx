@@ -379,6 +379,14 @@ const PlayNow = () => {
 
                     {/* Power Slider Section */}
                     <div className="space-y-4 pt-3">
+                      {/* Lock indicator when match is ongoing */}
+                      {ongoingMasterMatch && (
+                        <div className="text-center p-2 rounded-lg bg-amber-500/10 border border-amber-500/30">
+                          <p className="text-xs text-amber-400">
+                            Power locked during active match
+                          </p>
+                        </div>
+                      )}
                   <div className="text-center">
                     <p className="text-xs font-semibold text-muted-foreground/70 uppercase tracking-wider mb-3">
                       Adjust Master Intelligence Level
@@ -409,7 +417,8 @@ const PlayNow = () => {
                         min={0}
                         max={100}
                         step={1}
-                        className="relative w-full [&>span:first-child]:h-3 [&>span:first-child]:bg-transparent [&>span:last-child]:bg-gradient-to-r [&>span:last-child]:from-green-500/60 [&>span:last-child]:to-green-400/60 [&_[role=slider]]:h-6 [&_[role=slider]]:w-6 [&_[role=slider]]:border-2 [&_[role=slider]]:border-green-400 [&_[role=slider]]:shadow-[0_0_16px_rgba(34,197,94,0.6),inset_0_0_8px_rgba(34,197,94,0.3)] [&_[role=slider]]:bg-gradient-to-br [&_[role=slider]]:from-green-400/20 [&_[role=slider]]:to-background hover:[&_[role=slider]]:scale-125 transition-transform [&_[role=slider]]:ring-2 [&_[role=slider]]:ring-green-400/30"
+                        disabled={!!ongoingMasterMatch}
+                        className="relative w-full [&>span:first-child]:h-3 [&>span:first-child]:bg-transparent [&>span:last-child]:bg-gradient-to-r [&>span:last-child]:from-green-500/60 [&>span:last-child]:to-green-400/60 [&_[role=slider]]:h-6 [&_[role=slider]]:w-6 [&_[role=slider]]:border-2 [&_[role=slider]]:border-green-400 [&_[role=slider]]:shadow-[0_0_16px_rgba(34,197,94,0.6),inset_0_0_8px_rgba(34,197,94,0.3)] [&_[role=slider]]:bg-gradient-to-br [&_[role=slider]]:from-green-400/20 [&_[role=slider]]:to-background hover:[&_[role=slider]]:scale-125 transition-transform [&_[role=slider]]:ring-2 [&_[role=slider]]:ring-green-400/30 disabled:opacity-50 disabled:cursor-not-allowed"
                       />
                     </div>
                   </div>

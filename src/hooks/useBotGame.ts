@@ -9,6 +9,26 @@ import { useMasterProgress } from '@/hooks/useMasterProgress';
 
 type Power = number; // 0-100 continuous power level
 
+// Move evaluation cache (FEN → {move, score, timestamp})
+interface CachedEvaluation {
+  bestMove: Move;
+  score: number;
+  timestamp: number;
+}
+
+const moveCache = new Map<string, CachedEvaluation>();
+const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+const MAX_CACHE_SIZE = 20;
+
+// Performance logging
+interface PerformanceLog {
+  moveTime: number;
+  depth: number;
+  power: number;
+}
+
+const performanceLog: PerformanceLog[] = [];
+
 // Piece values for evaluation
 const PIECE_VALUES: { [key: string]: number } = {
   p: 100, n: 320, b: 330, r: 500, q: 900, k: 20000
@@ -48,15 +68,17 @@ interface DifficultyConfig {
 }
 
 // Convert power level (0-100) to difficulty configuration
-const getPowerConfig = (power: Power): DifficultyConfig => {
+const getPowerConfig = (power: Power, masterLevel: number = 1): DifficultyConfig => {
   // Non-linear power scaling for more dramatic differences
   const normalizedPower = power / 100;
   const scaledPower = Math.pow(normalizedPower, 1.5); // Non-linear curve
   
-  // Depth: improved formula - depth = floor(power / 5) + baseDepth
-  // Power 0 → depth 2, Power 100 → depth 22
+  // Dynamic depth scaling: combines POWER + MASTER LEVEL
+  // depth = floor(power / 5) + floor(master_level / 4) + baseDepth
   const baseDepth = 2;
-  const depth = Math.floor(power / 5) + baseDepth;
+  const powerDepth = Math.floor(power / 5);
+  const masterDepth = Math.floor(masterLevel / 4);
+  const depth = Math.max(2, Math.min(24, baseDepth + powerDepth + masterDepth));
   
   // MultiPV: 4 at low power, 1 at high power
   const multipv = power <= 33 ? 4 : power <= 66 ? 3 : 1;
@@ -68,8 +90,12 @@ const getPowerConfig = (power: Power): DifficultyConfig => {
   const blunderChance = power <= 50 ? Math.max(0, 0.45 - (power / 50) * 0.45) : 0;
   
   // Think time: scales from 100-250ms to 1500-3000ms
-  const minThink = Math.round(100 + scaledPower * 1400);
-  const maxThink = Math.round(250 + scaledPower * 2750);
+  // Reduce randomness for high-level Masters (more calm and controlled)
+  const varianceReduction = Math.min(0.7, masterLevel * 0.02);
+  const baseMinThink = 100 + scaledPower * 1400;
+  const baseMaxThink = 250 + scaledPower * 2750;
+  const minThink = Math.round(baseMinThink);
+  const maxThink = Math.round(baseMinThink + (baseMaxThink - baseMinThink) * (1 - varianceReduction));
   
   return {
     depth,
@@ -195,9 +221,56 @@ export const useBotGame = (power: Power = 50) => {
     }
   }, [evaluateBoard]);
 
-  // Professional move selection with blunder injection and multipv + ADAPTIVE DIFFICULTY + MASTER LEVEL BOOST
+  // Cleanup expired cache entries
+  const cleanupCache = useCallback(() => {
+    const now = Date.now();
+    for (const [fen, cached] of moveCache.entries()) {
+      if (now - cached.timestamp > CACHE_TTL) {
+        moveCache.delete(fen);
+      }
+    }
+    // Limit cache size
+    if (moveCache.size > MAX_CACHE_SIZE) {
+      const oldestKey = Array.from(moveCache.entries())
+        .sort((a, b) => a[1].timestamp - b[1].timestamp)[0][0];
+      moveCache.delete(oldestKey);
+    }
+  }, []);
+
+  // Lightweight evaluation for low power (quick mode)
+  const quickEvaluate = useCallback((game: Chess): Move | null => {
+    const moves = game.moves({ verbose: true });
+    if (moves.length === 0) return null;
+
+    // Simple heuristic: prioritize captures and center control
+    const scoredMoves = moves.map(move => {
+      let score = Math.random() * 10; // Add randomness
+      if (move.captured) score += PIECE_VALUES[move.captured];
+      if (['e4', 'e5', 'd4', 'd5'].includes(move.to)) score += 20; // Center control
+      return { move, score };
+    });
+
+    scoredMoves.sort((a, b) => b.score - a.score);
+    return scoredMoves[0].move;
+  }, []);
+
+  // Professional move selection with caching, lightweight mode, and performance optimizations
   const getBotMove = useCallback(async (game: Chess): Promise<Move | null> => {
-    const baseConfig = getPowerConfig(power);
+    const startCalcTime = Date.now();
+    const currentFen = game.fen();
+    const masterLevel = getMasterLevelBoost().depthBoost * 4 + 1; // Approximate master level
+
+    // Check cache first
+    const cached = moveCache.get(currentFen);
+    if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+      console.log('🎯 Cache hit for position');
+      return cached.bestMove;
+    }
+
+    // Cleanup old cache entries
+    cleanupCache();
+
+    const baseConfig = getPowerConfig(power, masterLevel);
     const adaptive = getAdaptiveAdjustment();
     const masterBoost = getMasterLevelBoost();
     
@@ -217,6 +290,17 @@ export const useBotGame = (power: Power = 50) => {
     const moves = game.moves({ verbose: true });
     if (moves.length === 0) return null;
 
+    // LIGHTWEIGHT MODE: Quick evaluation for low power
+    if (power < 40) {
+      const quickMove = quickEvaluate(game);
+      if (quickMove) {
+        // Still apply think time for realism
+        const thinkTime = config.thinkTime[0] + Math.random() * (config.thinkTime[1] - config.thinkTime[0]);
+        await new Promise(resolve => setTimeout(resolve, thinkTime));
+        return quickMove;
+      }
+    }
+
     // ANTI-TRICK: Detect player patterns
     const history = game.history();
     const trick = detectTrick(game.fen(), history);
@@ -228,14 +312,20 @@ export const useBotGame = (power: Power = 50) => {
       config.blunderChance = 0;
     }
 
-    // Simulate human-like thinking time with more variability
+    // Generate 2 candidate moves for anti-lag fallback
+    const candidateMoves: Move[] = [];
+    if (moves.length > 0) {
+      candidateMoves.push(moves[0]);
+      if (moves.length > 1) candidateMoves.push(moves[1]);
+    }
+
+    // Simulate human-like thinking time
     const baseThinkTime = config.thinkTime[0] + Math.random() * (config.thinkTime[1] - config.thinkTime[0]);
-    // Add occasional "deep thinking" pauses (10% chance for 2x longer)
     const thinkTime = Math.random() < 0.1 ? baseThinkTime * 2 : baseThinkTime;
     await new Promise(resolve => setTimeout(resolve, thinkTime));
 
     const startTime = Date.now();
-    const timeLimit = config.thinkTime[1];
+    const timeLimit = Math.min(3000, config.thinkTime[1]); // Max 3 seconds per move
 
     // Evaluate all moves and get top N (multipv)
     interface ScoredMove {
@@ -302,9 +392,52 @@ export const useBotGame = (power: Power = 50) => {
       return topMoves[randomIndex].move;
     }
 
+    // Anti-lag fallback: if calculation took too long, use best candidate
+    const calculationTime = Date.now() - startCalcTime;
+    if (calculationTime > 3000 && candidateMoves.length > 0) {
+      console.log('⚠️ Calculation timeout, using fallback move');
+      const fallbackMove = candidateMoves[0];
+      // Cache the fallback
+      moveCache.set(currentFen, {
+        bestMove: fallbackMove,
+        score: 0,
+        timestamp: Date.now()
+      });
+      return fallbackMove;
+    }
+
     // Default: return best move
-    return scoredMoves[0]?.move || moves[0];
-  }, [power, minimax, getAdaptiveAdjustment, detectTrick, winStreak, lossStreak, getMasterLevelBoost]);
+    const bestMove = scoredMoves[0]?.move || moves[0];
+    
+    // Cache the result
+    if (bestMove) {
+      moveCache.set(currentFen, {
+        bestMove,
+        score: scoredMoves[0]?.score || 0,
+        timestamp: Date.now()
+      });
+    }
+
+    // Performance logging
+    performanceLog.push({
+      moveTime: calculationTime,
+      depth: config.depth,
+      power
+    });
+    if (performanceLog.length > 50) performanceLog.shift(); // Keep last 50 moves
+
+    // Log average think time
+    const avgTime = performanceLog.reduce((sum, log) => sum + log.moveTime, 0) / performanceLog.length;
+    if (process.env.NODE_ENV === 'development') {
+      console.log('📊 Performance:', {
+        lastMoveTime: calculationTime,
+        avgMoveTime: Math.round(avgTime),
+        cacheSize: moveCache.size
+      });
+    }
+
+    return bestMove;
+  }, [power, minimax, getAdaptiveAdjustment, detectTrick, winStreak, lossStreak, getMasterLevelBoost, cleanupCache, quickEvaluate]);
 
   // Bot move execution (non-blocking UI)
   const makeBotMove = useCallback(async (currentGame: Chess) => {
@@ -377,6 +510,10 @@ export const useBotGame = (power: Power = 50) => {
     setLastMove(null);
     setGameId(null);
     hasAwardedXP.current = false; // Reset XP flag for new game
+    
+    // Cleanup: clear cache and performance logs
+    moveCache.clear();
+    performanceLog.length = 0;
   }, []);
 
   const getGameStatus = useCallback(() => {

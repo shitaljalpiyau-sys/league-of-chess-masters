@@ -35,6 +35,7 @@ import NoticeBoard from "./pages/NoticeBoard";
 import LiveSpectate from "./pages/LiveSpectate";
 import SpectateGame from "./pages/SpectateGame";
 import Replay from "./pages/Replay";
+import BotHistory from "./pages/BotHistory";
 import Auth from "./pages/Auth";
 
 const queryClient = new QueryClient();
@@ -64,6 +65,7 @@ const App = () => (
                   <Route path="/app" element={<Index />} />
                   <Route path="/bot-game" element={<BotGame />} />
                   <Route path="/play/bot" element={<BotGame />} />
+                  <Route path="/bot-history" element={<RequireAuth><BotHistory /></RequireAuth>} />
                   <Route path="/leaderboard" element={<Leaderboard />} />
                   <Route path="/tournament/:id" element={<TournamentDetails />} />
                   <Route path="/spectate" element={<LiveSpectate />} />

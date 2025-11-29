@@ -585,6 +585,45 @@ export type Database = {
         }
         Relationships: []
       }
+      master_progress: {
+        Row: {
+          created_at: string
+          id: string
+          last_power_used: number | null
+          master_level: number
+          master_xp: number
+          total_losses: number
+          total_matches: number
+          total_wins: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          last_power_used?: number | null
+          master_level?: number
+          master_xp?: number
+          total_losses?: number
+          total_matches?: number
+          total_wins?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          last_power_used?: number | null
+          master_level?: number
+          master_xp?: number
+          total_losses?: number
+          total_matches?: number
+          total_wins?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       match_history: {
         Row: {
           created_at: string | null

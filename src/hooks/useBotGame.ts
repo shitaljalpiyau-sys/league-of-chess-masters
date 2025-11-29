@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { Chess } from 'chess.js';
 import type { Square, Move } from 'chess.js';
 import { supabase } from '@/integrations/supabase/client';
@@ -91,6 +91,7 @@ export const useBotGame = (difficulty: Difficulty = 'moderate') => {
   const [isThinking, setIsThinking] = useState(false);
   const [lastMove, setLastMove] = useState<{ from: Square; to: Square; isOpponent: boolean } | null>(null);
   const [gameId, setGameId] = useState<string | null>(null);
+  const hasAwardedXP = useRef(false);
   const { user, refreshProfile } = useAuth();
   const { awardMatchXP } = useXPSystem();
   const { recordGame, getAdaptiveAdjustment, detectTrick, winStreak, lossStreak } = useBotAdaptiveDifficulty();
@@ -360,6 +361,7 @@ export const useBotGame = (difficulty: Difficulty = 'moderate') => {
     setIsThinking(false);
     setLastMove(null);
     setGameId(null);
+    hasAwardedXP.current = false; // Reset XP flag for new game
   }, []);
 
   const getGameStatus = useCallback(() => {
@@ -373,7 +375,7 @@ export const useBotGame = (difficulty: Difficulty = 'moderate') => {
   // Save game to history
   useEffect(() => {
     const saveGameToHistory = async () => {
-      if (!chess.isGameOver() || !user) return;
+      if (!chess.isGameOver() || !user || hasAwardedXP.current) return;
       
       const result = chess.isCheckmate() 
         ? (chess.turn() === 'w' ? 'black_wins' : 'white_wins')
@@ -414,6 +416,9 @@ export const useBotGame = (difficulty: Difficulty = 'moderate') => {
         moveCount,
         chess.history().slice(0, 6)
       );
+      
+      // Mark XP as awarded BEFORE showing popup to prevent loops
+      hasAwardedXP.current = true;
       
       setTimeout(() => {
         if (playerWon) {

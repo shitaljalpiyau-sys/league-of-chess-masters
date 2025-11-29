@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Brain, Clock, Target } from "lucide-react";
+import { Brain, Clock, Target, Trophy, Play } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 
 interface BotGameEntry {
@@ -68,21 +68,30 @@ export const RecentBotGames = () => {
   const getResultStyles = (game: BotGameEntry) => {
     if (game.winner_id === user?.id) {
       return {
-        label: "Victory",
-        color: "bg-green-500/10 text-green-400 border-green-500/50",
-        dot: "bg-green-500",
+        label: "WIN",
+        borderGlow: "border-l-4 border-l-green-500 shadow-[0_0_8px_rgba(34,197,94,0.3)]",
+        bgColor: "bg-gradient-to-r from-green-500/5 to-transparent",
+        textColor: "text-green-400",
+        icon: Trophy,
+        xp: "+50 XP"
       };
     } else if (game.winner_id && game.winner_id !== user?.id) {
       return {
-        label: "Defeat",
-        color: "bg-red-500/10 text-red-400 border-red-500/50",
-        dot: "bg-red-500",
+        label: "LOSS",
+        borderGlow: "border-l-4 border-l-red-500 shadow-[0_0_8px_rgba(239,68,68,0.3)]",
+        bgColor: "bg-gradient-to-r from-red-500/5 to-transparent",
+        textColor: "text-red-400",
+        icon: Trophy,
+        xp: "-18 XP"
       };
     }
     return {
-      label: "Draw",
-      color: "bg-muted-foreground/10 text-muted-foreground border-muted-foreground/50",
-      dot: "bg-muted-foreground",
+      label: "DRAW",
+      borderGlow: "border-l-4 border-l-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.3)]",
+      bgColor: "bg-gradient-to-r from-blue-500/5 to-transparent",
+      textColor: "text-blue-400",
+      icon: Trophy,
+      xp: "+6 XP"
     };
   };
 
@@ -109,7 +118,7 @@ export const RecentBotGames = () => {
   }
 
   return (
-    <Card className="w-[260px] border-2 border-primary/20 hover:border-primary/40 transition-all">
+    <Card className="w-[280px] border-2 border-primary/20 hover:border-primary/30 transition-all">
       <CardHeader className="pb-3">
         <CardTitle className="text-sm font-rajdhani flex items-center gap-2">
           <Brain className="h-4 w-4" />
@@ -120,35 +129,52 @@ export const RecentBotGames = () => {
         {games.map((game) => {
           const styles = getResultStyles(game);
           const difficulty = getDifficulty(game.player2_username);
+          const ResultIcon = styles.icon;
 
           return (
             <div
               key={game.id}
               onClick={() => navigate(`/replay/${game.match_id}`)}
-              className="p-2.5 rounded-lg border border-border/50 hover:border-primary/50 hover:bg-card-dark/50 transition-all cursor-pointer group"
+              className={`
+                relative rounded-lg cursor-pointer group overflow-hidden
+                h-12 flex items-center gap-3 px-3 py-2
+                ${styles.borderGlow} ${styles.bgColor}
+                hover:scale-[1.02] transition-all duration-200
+                hover:shadow-[0_0_12px_rgba(var(--primary-rgb),0.4)]
+              `}
             >
-              <div className="flex items-center justify-between mb-1.5">
-                <div className="flex items-center gap-2">
-                  <span className={`h-2 w-2 rounded-full ${styles.dot}`} />
-                  <span className={`text-xs font-semibold px-2 py-0.5 rounded border ${styles.color}`}>
-                    {styles.label}
-                  </span>
-                </div>
-                <span className="text-[10px] text-muted-foreground uppercase font-semibold">
-                  {difficulty}
+              {/* Result Status */}
+              <div className="flex items-center gap-2 flex-shrink-0">
+                <ResultIcon className={`h-4 w-4 ${styles.textColor}`} />
+                <span className={`text-xs font-bold font-rajdhani ${styles.textColor}`}>
+                  {styles.label}
                 </span>
               </div>
-              
-              <div className="flex items-center justify-between text-[10px] text-muted-foreground">
-                <div className="flex items-center gap-2">
-                  <span className="flex items-center gap-1">
-                    <Target className="h-2.5 w-2.5" />
-                    {game.total_moves}
-                  </span>
-                  <span className="flex items-center gap-1">
-                    <Clock className="h-2.5 w-2.5" />
-                    {formatDistanceToNow(new Date(game.end_time), { addSuffix: true })}
-                  </span>
+
+              {/* XP Gained */}
+              <span className="text-[10px] text-muted-foreground font-semibold">
+                {styles.xp}
+              </span>
+
+              {/* Difficulty */}
+              <span className="text-[10px] text-muted-foreground uppercase font-semibold px-2 py-0.5 rounded bg-background/50">
+                {difficulty}
+              </span>
+
+              {/* Moves */}
+              <div className="flex items-center gap-1 ml-auto">
+                <Target className="h-3 w-3 text-muted-foreground/70" />
+                <span className="text-[10px] text-muted-foreground">{game.total_moves}</span>
+              </div>
+
+              {/* Replay Icon (appears on hover) */}
+              <Play className="h-3.5 w-3.5 text-primary opacity-0 group-hover:opacity-100 transition-opacity" />
+
+              {/* Time */}
+              <div className="absolute -bottom-0.5 left-3 right-3">
+                <div className="flex items-center gap-1 text-[9px] text-muted-foreground/60">
+                  <Clock className="h-2.5 w-2.5" />
+                  {formatDistanceToNow(new Date(game.end_time), { addSuffix: true })}
                 </div>
               </div>
             </div>

@@ -3,12 +3,14 @@ import { useNavigate } from "react-router-dom";
 import { gsap } from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { useAuth } from "@/contexts/AuthContext";
 import { Crown, Zap, Trophy, Sparkles } from "lucide-react";
 
 gsap.registerPlugin(ScrollTrigger);
 
 export default function FuturisticIntro() {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const isMobile = useIsMobile();
   const containerRef = useRef<HTMLDivElement>(null);
   const heroRef = useRef<HTMLDivElement>(null);
@@ -131,7 +133,11 @@ export default function FuturisticIntro() {
   }, [isMobile]);
 
   const handleLaunchApp = () => {
-    navigate("/dashboard");
+    if (user) {
+      navigate("/dashboard");
+    } else {
+      navigate("/auth");
+    }
   };
 
   return (

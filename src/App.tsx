@@ -35,6 +35,7 @@ import NoticeBoard from "./pages/NoticeBoard";
 import LiveSpectate from "./pages/LiveSpectate";
 import SpectateGame from "./pages/SpectateGame";
 import Replay from "./pages/Replay";
+import Auth from "./pages/Auth";
 
 const queryClient = new QueryClient();
 
@@ -54,6 +55,7 @@ const App = () => (
                 <Route path="/landing" element={<Landing />} />
                 <Route path="/new" element={<NewLanding />} />
                 <Route path="/intro" element={<FuturisticIntro />} />
+                <Route path="/auth" element={<Auth />} />
                 
                 {/* Main app routes with MainLayout */}
                 <Route element={<MainLayout />}>

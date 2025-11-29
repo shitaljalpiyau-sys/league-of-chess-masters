@@ -13,6 +13,8 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { RecentBotGames } from "@/components/RecentBotGames";
+import { useMasterProgress } from "@/hooks/useMasterProgress";
+import { Progress } from "@/components/ui/progress";
 
 const PlayNow = () => {
   const [selectedTimeControl, setSelectedTimeControl] = useState("10+0");
@@ -22,6 +24,7 @@ const PlayNow = () => {
   const { searching, joinQueue, leaveQueue } = useQuickMatch(selectedTimeControl);
   const { user, profile } = useAuth();
   const navigate = useNavigate();
+  const { masterProgress, loading: masterLoading, getNextLevelXP } = useMasterProgress();
 
   // Calculate XP reward with smooth scaling (15 to 100)
   const getXPReward = () => {
@@ -44,10 +47,23 @@ const PlayNow = () => {
     return 5;
   };
 
-  // Calculate Master Level based on player level
+  // Calculate Master Level based on player level (fallback if no master progress)
   const getMasterLevel = () => {
+    if (masterProgress) return masterProgress.master_level;
     if (!profile) return 1;
     return Math.floor((profile.level || 1) * 1.3);
+  };
+
+  // Get Master XP progress
+  const getMasterXPProgress = () => {
+    if (!masterProgress) return { current: 0, needed: 50, percentage: 0 };
+    const needed = getNextLevelXP(masterProgress.master_level);
+    const percentage = (masterProgress.master_xp / needed) * 100;
+    return {
+      current: masterProgress.master_xp,
+      needed,
+      percentage: Math.min(100, percentage)
+    };
   };
 
   const handleSendChallenge = async () => {
@@ -210,9 +226,24 @@ const PlayNow = () => {
                     </div>
 
                     <div className="text-center space-y-3">
-                      <p className="text-sm font-bold text-green-400/90 uppercase tracking-wider">
-                        MASTER LEVEL: {getMasterLevel()}
-                      </p>
+                      <div className="space-y-1">
+                        <p className="text-sm font-bold text-green-400/90 uppercase tracking-wider">
+                          MASTER LEVEL: {getMasterLevel()}
+                        </p>
+                        
+                        {/* XP Progress */}
+                        <div className="w-full max-w-[200px] mx-auto space-y-1">
+                          <div className="flex items-center justify-between text-[10px] text-muted-foreground/70">
+                            <span>XP: {getMasterXPProgress().current}</span>
+                            <span>{getMasterXPProgress().needed}</span>
+                          </div>
+                          <Progress 
+                            value={getMasterXPProgress().percentage} 
+                            className="h-2 bg-background/50"
+                          />
+                        </div>
+                      </div>
+                      
                       <p className="text-lg font-bold text-green-400">Current Power: {masterPower[0]}</p>
                       <div className="flex items-center justify-center gap-2">
                         <span className="text-xs text-muted-foreground/70">AI Behavior:</span>
@@ -276,13 +307,26 @@ const PlayNow = () => {
                           </div>
                         </div>
 
-                    {/* Micro-description */}
-                    <div className="text-center space-y-1">
+                    {/* Micro-description + XP Progress */}
+                    <div className="text-center space-y-2">
                       <p className="text-[10px] font-bold text-green-400/90 uppercase tracking-wider">
                         MASTER LEVEL: {getMasterLevel()}
                       </p>
+                      
+                      {/* XP Progress Bar */}
+                      <div className="w-full max-w-[140px] mx-auto space-y-1">
+                        <div className="flex items-center justify-between text-[8px] text-muted-foreground/70">
+                          <span>XP: {getMasterXPProgress().current}</span>
+                          <span>{getMasterXPProgress().needed}</span>
+                        </div>
+                        <Progress 
+                          value={getMasterXPProgress().percentage} 
+                          className="h-1.5 bg-background/50"
+                        />
+                      </div>
+                      
                       <p className="text-[9px] text-muted-foreground/70 max-w-[140px] leading-tight">
-                        Adaptive intelligence based on your power setting
+                        Master grows stronger with each victory
                       </p>
                     </div>
                       </div>

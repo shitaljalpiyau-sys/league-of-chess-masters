@@ -5,6 +5,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useXPSystem } from '@/hooks/useXPSystem';
 import { useBotAdaptiveDifficulty } from '@/hooks/useBotAdaptiveDifficulty';
+import { useMasterProgress } from '@/hooks/useMasterProgress';
 
 type Power = number; // 0-100 continuous power level
 
@@ -107,6 +108,7 @@ export const useBotGame = (power: Power = 50) => {
   const { user, refreshProfile } = useAuth();
   const { awardMatchXP } = useXPSystem();
   const { recordGame, getAdaptiveAdjustment, detectTrick, winStreak, lossStreak } = useBotAdaptiveDifficulty();
+  const { awardMasterXP, getMasterLevelBoost } = useMasterProgress();
 
   // Enhanced board evaluation with positional awareness
   const evaluateBoard = useCallback((game: Chess): number => {
@@ -193,20 +195,21 @@ export const useBotGame = (power: Power = 50) => {
     }
   }, [evaluateBoard]);
 
-  // Professional move selection with blunder injection and multipv + ADAPTIVE DIFFICULTY
+  // Professional move selection with blunder injection and multipv + ADAPTIVE DIFFICULTY + MASTER LEVEL BOOST
   const getBotMove = useCallback(async (game: Chess): Promise<Move | null> => {
     const baseConfig = getPowerConfig(power);
     const adaptive = getAdaptiveAdjustment();
+    const masterBoost = getMasterLevelBoost();
     
-    // Apply adaptive adjustments
+    // Apply adaptive adjustments + Master level boost
     const config = {
-      depth: Math.max(1, Math.min(28, baseConfig.depth + adaptive.depthAdjust)),
+      depth: Math.max(1, Math.min(24, baseConfig.depth + adaptive.depthAdjust + masterBoost.depthBoost)),
       multipv: baseConfig.multipv,
       randomness: Math.max(0, Math.min(1, baseConfig.randomness + adaptive.randomnessAdjust)),
-      blunderChance: Math.max(0, Math.min(1, baseConfig.blunderChance + adaptive.blunderAdjust)),
+      blunderChance: Math.max(0.01, Math.min(1, baseConfig.blunderChance + adaptive.blunderAdjust - masterBoost.blunderReduction)),
       thinkTime: [
-        Math.max(50, baseConfig.thinkTime[0] + adaptive.thinkTimeAdjust),
-        Math.max(100, baseConfig.thinkTime[1] + adaptive.thinkTimeAdjust)
+        Math.max(300, baseConfig.thinkTime[0] + adaptive.thinkTimeAdjust - (masterBoost.speedBoost * 1000)),
+        Math.max(500, baseConfig.thinkTime[1] + adaptive.thinkTimeAdjust - (masterBoost.speedBoost * 1000))
       ] as [number, number],
       eloRange: baseConfig.eloRange
     };
@@ -301,7 +304,7 @@ export const useBotGame = (power: Power = 50) => {
 
     // Default: return best move
     return scoredMoves[0]?.move || moves[0];
-  }, [power, minimax, getAdaptiveAdjustment, detectTrick, winStreak, lossStreak]);
+  }, [power, minimax, getAdaptiveAdjustment, detectTrick, winStreak, lossStreak, getMasterLevelBoost]);
 
   // Bot move execution (non-blocking UI)
   const makeBotMove = useCallback(async (currentGame: Chess) => {
@@ -437,8 +440,12 @@ export const useBotGame = (power: Power = 50) => {
         if (playerWon) {
           const xpReward = getPowerXPReward(power);
           awardMatchXP('win', { fastCheckmate: isFastCheckmate, customXP: xpReward });
+          // Award Master XP
+          awardMasterXP(power, true);
+        } else {
+          // Award Master XP even on loss (but 0 XP)
+          awardMasterXP(power, false);
         }
-        // No XP for draw or loss in new system
       }, 500);
       
       const fenHistory: string[] = [new Chess().fen()];
@@ -476,7 +483,7 @@ export const useBotGame = (power: Power = 50) => {
     };
     
     saveGameToHistory();
-  }, [chess.isGameOver(), power, user, playerColor, awardMatchXP, refreshProfile, recordGame]);
+  }, [chess.isGameOver(), power, user, playerColor, awardMatchXP, refreshProfile, recordGame, awardMasterXP]);
 
   return {
     chess,

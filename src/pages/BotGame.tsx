@@ -198,6 +198,7 @@ const BotGame = () => {
               playerColor="white"
               pieceColors={userPreferences?.custom_piece_colors}
               showCoordinates={true}
+              highlightOpponentMove={true}
             />
           </div>
         </div>
@@ -383,6 +384,7 @@ const BotGame = () => {
                   playerColor="white"
                   pieceColors={userPreferences?.custom_piece_colors}
                   showCoordinates={true}
+                  highlightOpponentMove={true}
                 />
               )}
             </div>

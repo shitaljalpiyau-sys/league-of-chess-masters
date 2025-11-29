@@ -4,6 +4,7 @@ import type { Square, Move } from 'chess.js';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useXPSystem } from '@/hooks/useXPSystem';
+import { useBotAdaptiveDifficulty } from '@/hooks/useBotAdaptiveDifficulty';
 
 type Difficulty = 'easy' | 'moderate' | 'hard' | 'super-hard';
 
@@ -90,6 +91,7 @@ export const useBotGame = (difficulty: Difficulty = 'moderate') => {
   const [isThinking, setIsThinking] = useState(false);
   const { user, refreshProfile } = useAuth();
   const { awardMatchXP } = useXPSystem();
+  const { recordGame, getAdaptiveAdjustment, detectTrick, winStreak, lossStreak } = useBotAdaptiveDifficulty();
 
   // Enhanced board evaluation with positional awareness
   const evaluateBoard = useCallback((game: Chess): number => {
@@ -176,11 +178,37 @@ export const useBotGame = (difficulty: Difficulty = 'moderate') => {
     }
   }, [evaluateBoard]);
 
-  // Professional move selection with blunder injection and multipv
+  // Professional move selection with blunder injection and multipv + ADAPTIVE DIFFICULTY
   const getBotMove = useCallback(async (game: Chess): Promise<Move | null> => {
-    const config = DIFFICULTY_CONFIG[difficulty];
+    const baseConfig = DIFFICULTY_CONFIG[difficulty];
+    const adaptive = getAdaptiveAdjustment();
+    
+    // Apply adaptive adjustments
+    const config = {
+      depth: Math.max(1, Math.min(28, baseConfig.depth + adaptive.depthAdjust)),
+      multipv: baseConfig.multipv,
+      randomness: Math.max(0, Math.min(1, baseConfig.randomness + adaptive.randomnessAdjust)),
+      blunderChance: Math.max(0, Math.min(1, baseConfig.blunderChance + adaptive.blunderAdjust)),
+      thinkTime: [
+        Math.max(50, baseConfig.thinkTime[0] + adaptive.thinkTimeAdjust),
+        Math.max(100, baseConfig.thinkTime[1] + adaptive.thinkTimeAdjust)
+      ] as [number, number],
+      eloRange: baseConfig.eloRange
+    };
+
     const moves = game.moves({ verbose: true });
     if (moves.length === 0) return null;
+
+    // ANTI-TRICK: Detect player patterns
+    const history = game.history();
+    const trick = detectTrick(game.fen(), history);
+    
+    if (trick) {
+      console.log('🛡️ Trick detected:', trick, '- Bot adapting strategy');
+      // Increase depth for trick prevention
+      config.depth = Math.min(config.depth + 4, 28);
+      config.blunderChance = 0;
+    }
 
     // Simulate thinking time
     const thinkTime = config.thinkTime[0] + Math.random() * (config.thinkTime[1] - config.thinkTime[0]);
@@ -217,16 +245,20 @@ export const useBotGame = (difficulty: Difficulty = 'moderate') => {
     // Sort by score (best first)
     scoredMoves.sort((a, b) => b.score - a.score);
 
-    // DEBUG LOGGING (for testing)
+    // DEBUG LOGGING (adaptive difficulty feedback)
     if (process.env.NODE_ENV === 'development') {
       console.log('🤖 Bot Analysis:', {
-        difficulty,
+        baseDifficulty: difficulty,
+        adaptedDepth: config.depth,
+        randomness: config.randomness,
+        blunderChance: config.blunderChance,
+        winStreak,
+        lossStreak,
         topMoves: scoredMoves.slice(0, 3).map(sm => ({ 
           move: `${sm.move.from}-${sm.move.to}`, 
           score: sm.score 
         })),
-        multipv: config.multipv,
-        blunderChance: config.blunderChance
+        trickDetected: trick || 'none'
       });
     }
 
@@ -252,7 +284,7 @@ export const useBotGame = (difficulty: Difficulty = 'moderate') => {
 
     // Default: return best move
     return scoredMoves[0]?.move || moves[0];
-  }, [difficulty, minimax]);
+  }, [difficulty, minimax, getAdaptiveAdjustment, detectTrick, winStreak, lossStreak]);
 
   // Bot move execution (non-blocking UI)
   const makeBotMove = useCallback(async (currentGame: Chess) => {
@@ -374,6 +406,13 @@ export const useBotGame = (difficulty: Difficulty = 'moderate') => {
       
       await refreshProfile();
       
+      // Record game for adaptive difficulty
+      recordGame(
+        playerWon ? 'win' : isDraw ? 'draw' : 'loss',
+        moveCount,
+        chess.history().slice(0, 6)
+      );
+      
       setTimeout(() => {
         if (playerWon) {
           awardMatchXP('win', { fastCheckmate: isFastCheckmate });
@@ -416,7 +455,7 @@ export const useBotGame = (difficulty: Difficulty = 'moderate') => {
     };
     
     saveGameToHistory();
-  }, [chess.isGameOver(), difficulty, user, playerColor, awardMatchXP, refreshProfile]);
+  }, [chess.isGameOver(), difficulty, user, playerColor, awardMatchXP, refreshProfile, recordGame]);
 
   return {
     chess,

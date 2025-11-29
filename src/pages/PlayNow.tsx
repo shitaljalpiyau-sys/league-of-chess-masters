@@ -8,6 +8,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
+import { RecentBotGames } from "@/components/RecentBotGames";
 
 const PlayNow = () => {
   const [selectedTimeControl, setSelectedTimeControl] = useState("10+0");
@@ -296,6 +297,11 @@ const PlayNow = () => {
               </Card>
             ))}
           </div>
+        </div>
+
+        {/* Recent Bot Games Panel - Bottom Right */}
+        <div className="flex justify-end">
+          <RecentBotGames />
         </div>
       </div>
     </div>

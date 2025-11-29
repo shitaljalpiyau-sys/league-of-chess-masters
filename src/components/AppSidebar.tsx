@@ -1,4 +1,4 @@
-import { Home, ShoppingCart, MessageSquare, Trophy, Users, Swords, Target, Coins, Package, Settings, HeadphonesIcon, FileText, Eye, Brain } from "lucide-react";
+import { Home, ShoppingCart, MessageSquare, Trophy, Users, Swords, Target, Coins, Package, Settings, HeadphonesIcon, FileText, Eye } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { Link } from "react-router-dom";
 import {
@@ -17,7 +17,6 @@ import {
 const menuItems = [
   { title: "HOME", url: "/", icon: Home },
   { title: "PLAY NOW", url: "/play", icon: Target },
-  { title: "BOT HISTORY", url: "/bot-history", icon: Brain },
   { title: "CHALLENGES", url: "/challenges", icon: Swords },
   { title: "CHALLENGE ARENA", url: "/arena", icon: Target },
   { title: "LIVE SPECTATE", url: "/spectate", icon: Eye },

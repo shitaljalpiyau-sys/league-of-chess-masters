@@ -19,11 +19,10 @@ const BotGame = () => {
   const is3DMode = userPreferences?.is_3d_mode || false;
   const isMobile = useIsMobile();
   
-  const { chess, playerColor, isPlayerTurn, makeMove, resetGame, isThinking, gameStatus } = useBotGame(difficulty);
+  const { chess, playerColor, isPlayerTurn, makeMove, resetGame, isThinking, gameStatus, lastMove: botLastMove, gameId } = useBotGame(difficulty);
   
   const [selectedSquare, setSelectedSquare] = useState<Square | null>(null);
   const [legalMoves, setLegalMoves] = useState<Square[]>([]);
-  const [lastMove, setLastMove] = useState<{ from: Square; to: Square } | null>(null);
   const [isFullScreen, setIsFullScreen] = useState(false);
   const [showDifficultySelector, setShowDifficultySelector] = useState(false);
 
@@ -64,10 +63,7 @@ const BotGame = () => {
 
     if (selectedSquare) {
       if (legalMoves.includes(square)) {
-        const success = makeMove(selectedSquare, square);
-        if (success) {
-          setLastMove({ from: selectedSquare, to: square });
-        }
+        makeMove(selectedSquare, square);
         setSelectedSquare(null);
         setLegalMoves([]);
       } else if (piece && piece.color === playerColor[0]) {
@@ -156,12 +152,21 @@ const BotGame = () => {
         {gameStatus !== 'active' && (
           <div className="absolute top-4 left-1/2 -translate-x-1/2 z-10">
             <Card className="p-4 bg-card/90 backdrop-blur-sm border-border">
-              <div className="text-center">
+              <div className="text-center space-y-3">
                 <p className="text-xl font-bold font-rajdhani text-primary">
                   {gameStatus === 'checkmate' && '🎉 Checkmate!'}
                   {gameStatus === 'draw' && '🤝 Draw!'}
                   {gameStatus === 'stalemate' && '🤝 Stalemate!'}
                 </p>
+                {gameId && (
+                  <Button
+                    variant="default"
+                    onClick={() => navigate(`/replay/${gameId}`)}
+                    className="bg-primary text-primary-foreground"
+                  >
+                    Replay Game
+                  </Button>
+                )}
               </div>
             </Card>
           </div>
@@ -193,12 +198,12 @@ const BotGame = () => {
               onSquareClick={handleSquareClick}
               selectedSquare={selectedSquare}
               legalMoves={legalMoves}
-              lastMove={lastMove}
+              lastMove={botLastMove ? { from: botLastMove.from, to: botLastMove.to } : null}
               isPlayerTurn={isPlayerTurn && !isThinking}
               playerColor="white"
               pieceColors={userPreferences?.custom_piece_colors}
               showCoordinates={true}
-              highlightOpponentMove={true}
+              highlightOpponentMove={botLastMove?.isOpponent}
             />
           </div>
         </div>
@@ -318,15 +323,26 @@ const BotGame = () => {
         {/* Game Status */}
         {gameStatus !== 'active' && (
           <Card className="p-6 bg-card border-border">
-            <div className="text-center">
-              <p className="text-2xl font-bold font-rajdhani text-primary">
-                {gameStatus === 'checkmate' && '🎉 Checkmate!'}
-                {gameStatus === 'draw' && '🤝 Draw!'}
-                {gameStatus === 'stalemate' && '🤝 Stalemate!'}
-              </p>
-              <p className="text-muted-foreground mt-2">
-                {gameStatus === 'checkmate' && chess.turn() === 'w' ? 'Black wins!' : gameStatus === 'checkmate' ? 'White wins!' : 'Game ended in a draw'}
-              </p>
+            <div className="text-center space-y-4">
+              <div>
+                <p className="text-2xl font-bold font-rajdhani text-primary">
+                  {gameStatus === 'checkmate' && '🎉 Checkmate!'}
+                  {gameStatus === 'draw' && '🤝 Draw!'}
+                  {gameStatus === 'stalemate' && '🤝 Stalemate!'}
+                </p>
+                <p className="text-muted-foreground mt-2">
+                  {gameStatus === 'checkmate' && chess.turn() === 'w' ? 'Black wins!' : gameStatus === 'checkmate' ? 'White wins!' : 'Game ended in a draw'}
+                </p>
+              </div>
+              {gameId && (
+                <Button
+                  variant="default"
+                  onClick={() => navigate(`/replay/${gameId}`)}
+                  className="bg-primary text-primary-foreground"
+                >
+                  Replay Game
+                </Button>
+              )}
             </div>
           </Card>
         )}
@@ -379,12 +395,12 @@ const BotGame = () => {
                   onSquareClick={handleSquareClick}
                   selectedSquare={selectedSquare}
                   legalMoves={legalMoves}
-                  lastMove={lastMove}
+                  lastMove={botLastMove ? { from: botLastMove.from, to: botLastMove.to } : null}
                   isPlayerTurn={isPlayerTurn && !isThinking}
                   playerColor="white"
                   pieceColors={userPreferences?.custom_piece_colors}
                   showCoordinates={true}
-                  highlightOpponentMove={true}
+                  highlightOpponentMove={botLastMove?.isOpponent}
                 />
               )}
             </div>

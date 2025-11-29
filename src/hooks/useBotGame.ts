@@ -89,6 +89,8 @@ export const useBotGame = (difficulty: Difficulty = 'moderate') => {
   const [chess, setChess] = useState(new Chess());
   const [playerColor] = useState<'white' | 'black'>('white');
   const [isThinking, setIsThinking] = useState(false);
+  const [lastMove, setLastMove] = useState<{ from: Square; to: Square; isOpponent: boolean } | null>(null);
+  const [gameId, setGameId] = useState<string | null>(null);
   const { user, refreshProfile } = useAuth();
   const { awardMatchXP } = useXPSystem();
   const { recordGame, getAdaptiveAdjustment, detectTrick, winStreak, lossStreak } = useBotAdaptiveDifficulty();
@@ -210,8 +212,10 @@ export const useBotGame = (difficulty: Difficulty = 'moderate') => {
       config.blunderChance = 0;
     }
 
-    // Simulate thinking time
-    const thinkTime = config.thinkTime[0] + Math.random() * (config.thinkTime[1] - config.thinkTime[0]);
+    // Simulate human-like thinking time with more variability
+    const baseThinkTime = config.thinkTime[0] + Math.random() * (config.thinkTime[1] - config.thinkTime[0]);
+    // Add occasional "deep thinking" pauses (10% chance for 2x longer)
+    const thinkTime = Math.random() < 0.1 ? baseThinkTime * 2 : baseThinkTime;
     await new Promise(resolve => setTimeout(resolve, thinkTime));
 
     const startTime = Date.now();
@@ -300,17 +304,11 @@ export const useBotGame = (difficulty: Difficulty = 'moderate') => {
         // Apply move
         currentGame.move(move);
         
-        // Smooth highlight animation
-        requestAnimationFrame(() => {
-          document.querySelectorAll('.highlight-from, .highlight-to').forEach(el => {
-            el.classList.remove('highlight-from', 'highlight-to');
-          });
-          
-          const fromSquare = document.querySelector(`[data-square="${move.from}"]`);
-          const toSquare = document.querySelector(`[data-square="${move.to}"]`);
-          
-          if (fromSquare) fromSquare.classList.add('highlight-from');
-          if (toSquare) toSquare.classList.add('highlight-to');
+        // Update last move state for highlighting (RED for bot moves)
+        setLastMove({ 
+          from: move.from as Square, 
+          to: move.to as Square,
+          isOpponent: true // Bot moves are opponent moves (RED)
         });
       }
     } catch (error) {
@@ -328,15 +326,17 @@ export const useBotGame = (difficulty: Difficulty = 'moderate') => {
     }
 
     try {
-      // Remove highlights
-      document.querySelectorAll('.highlight-from, .highlight-to').forEach(el => {
-        el.classList.remove('highlight-from', 'highlight-to');
-      });
-      
       const newGame = new Chess(chess.fen());
       const move = newGame.move({ from, to, promotion: promotion || 'q' });
 
       if (!move) return false;
+
+      // Update last move state for highlighting (BLUE for player moves)
+      setLastMove({ 
+        from: move.from as Square, 
+        to: move.to as Square,
+        isOpponent: false // Player moves are not opponent moves (BLUE)
+      });
 
       setChess(newGame);
 
@@ -358,6 +358,8 @@ export const useBotGame = (difficulty: Difficulty = 'moderate') => {
   const resetGame = useCallback(() => {
     setChess(new Chess());
     setIsThinking(false);
+    setLastMove(null);
+    setGameId(null);
   }, []);
 
   const getGameStatus = useCallback(() => {
@@ -431,8 +433,11 @@ export const useBotGame = (difficulty: Difficulty = 'moderate') => {
         fenHistory.push(tempChess.fen());
       });
       
+      const matchId = crypto.randomUUID();
+      setGameId(matchId);
+      
       await supabase.from('match_history').insert({
-        match_id: crypto.randomUUID(),
+        match_id: matchId,
         player1_id: user.id,
         player2_id: user.id,
         player1_username: profile.username,
@@ -466,6 +471,8 @@ export const useBotGame = (difficulty: Difficulty = 'moderate') => {
     isThinking,
     gameStatus: getGameStatus(),
     gameOver: chess.isGameOver(),
-    engineReady: true
+    engineReady: true,
+    lastMove,
+    gameId
   };
 };

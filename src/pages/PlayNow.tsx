@@ -2,7 +2,8 @@ import { useState, useEffect } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Clock, Trophy, Zap, Users, Loader2, Bot, Swords } from "lucide-react";
+import { Slider } from "@/components/ui/slider";
+import { Clock, Trophy, Zap, Users, Loader2, Bot, Swords, Brain } from "lucide-react";
 import { useQuickMatch } from "@/hooks/useQuickMatch";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -14,9 +15,18 @@ const PlayNow = () => {
   const [selectedTimeControl, setSelectedTimeControl] = useState("10+0");
   const [activeGames, setActiveGames] = useState<any[]>([]);
   const [challengeUsername, setChallengeUsername] = useState("");
+  const [masterPower, setMasterPower] = useState([50]); // 0-100 power slider
   const { searching, joinQueue, leaveQueue } = useQuickMatch(selectedTimeControl);
   const { user } = useAuth();
   const navigate = useNavigate();
+
+  // Calculate XP reward based on power range
+  const getXPReward = () => {
+    const power = masterPower[0];
+    if (power <= 33) return 15;  // Easy range
+    if (power <= 66) return 40;  // Medium range
+    return 100;                  // Hard range
+  };
 
   const handleSendChallenge = async () => {
     if (!challengeUsername.trim()) {
@@ -135,42 +145,81 @@ const PlayNow = () => {
           </div>
         )}
 
-        {/* Bot Matches Section */}
-        <Card className="p-8 bg-gradient-to-r from-accent/10 to-secondary/10 border-2 border-accent/20 shadow-lg">
+        {/* YOUR MASTER Section */}
+        <Card className="p-8 bg-gradient-to-r from-primary/10 to-accent/10 border-2 border-primary/20 shadow-lg">
           <div className="space-y-6">
             <div className="text-center space-y-2">
               <div className="flex items-center justify-center gap-2">
-                <Bot className="h-8 w-8 text-accent" />
-                <h2 className="text-3xl font-bold font-rajdhani">Bot Matches</h2>
+                <Brain className="h-8 w-8 text-primary" />
+                <h2 className="text-3xl font-bold font-rajdhani">YOUR MASTER</h2>
               </div>
               <p className="text-muted-foreground">
-                Sharpen your skills against our AI opponent
+                Control your opponent's intelligence level
               </p>
             </div>
             
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <Button 
-                size="lg" 
-                className="h-14 text-lg font-semibold bg-green-500/20 hover:bg-green-500/30 border-2 border-green-500/50 text-foreground"
-                onClick={() => navigate('/bot-game?difficulty=easy')}
-              >
-                EASY BOT
-              </Button>
-              <Button 
-                size="lg" 
-                className="h-14 text-lg font-semibold bg-yellow-500/20 hover:bg-yellow-500/30 border-2 border-yellow-500/50 text-foreground"
-                onClick={() => navigate('/bot-game?difficulty=moderate')}
-              >
-                MEDIUM BOT
-              </Button>
-              <Button 
-                size="lg" 
-                className="h-14 text-lg font-semibold bg-red-500/20 hover:bg-red-500/30 border-2 border-red-500/50 text-foreground"
-                onClick={() => navigate('/bot-game?difficulty=hard')}
-              >
-                HARD BOT
-              </Button>
+            {/* Master Profile Card */}
+            <Card className="p-6 bg-card/50 border-primary/20">
+              <div className="flex items-center gap-6">
+                {/* Avatar */}
+                <div className="relative">
+                  <div className="w-20 h-20 rounded-full bg-gradient-to-br from-primary to-accent flex items-center justify-center">
+                    <Brain className="h-10 w-10 text-primary-foreground" />
+                  </div>
+                  <div className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-primary border-2 border-card flex items-center justify-center">
+                    <Bot className="h-3 w-3 text-primary-foreground" />
+                  </div>
+                </div>
+                
+                {/* Power Info */}
+                <div className="flex-1">
+                  <div className="flex items-baseline gap-2 mb-1">
+                    <span className="text-sm text-muted-foreground">Power:</span>
+                    <span className="text-3xl font-bold font-rajdhani bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
+                      {masterPower[0]}
+                    </span>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Your master becomes smarter at higher power levels.
+                  </p>
+                  <div className="mt-2 flex items-center gap-2">
+                    <span className="text-xs font-semibold text-accent">
+                      Win Reward: +{getXPReward()} XP
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </Card>
+
+            {/* Power Slider */}
+            <div className="space-y-4">
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-muted-foreground">Weakest</span>
+                <span className="text-muted-foreground">Strongest</span>
+              </div>
+              <Slider
+                value={masterPower}
+                onValueChange={setMasterPower}
+                min={0}
+                max={100}
+                step={1}
+                className="w-full"
+              />
+              <div className="flex items-center justify-between text-xs text-muted-foreground">
+                <span>Easy (+15 XP)</span>
+                <span>Medium (+40 XP)</span>
+                <span>Hard (+100 XP)</span>
+              </div>
             </div>
+
+            {/* Start Game Button */}
+            <Button 
+              size="lg" 
+              className="w-full h-14 text-lg font-semibold bg-gradient-to-r from-primary to-accent hover:opacity-90 transition-opacity"
+              onClick={() => navigate(`/bot-game?power=${masterPower[0]}`)}
+            >
+              CHALLENGE YOUR MASTER
+            </Button>
           </div>
         </Card>
 

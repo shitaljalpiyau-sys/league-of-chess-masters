@@ -13,36 +13,27 @@ import { motion, AnimatePresence } from 'framer-motion';
 
 const BotGame = () => {
   const [searchParams, setSearchParams] = useSearchParams();
-  const difficulty = (searchParams.get('difficulty') || 'moderate') as 'easy' | 'moderate' | 'hard' | 'super-hard';
+  const powerParam = searchParams.get('power');
+  const power = powerParam ? parseInt(powerParam) : 50; // Default to 50 if no power specified
   const navigate = useNavigate();
   const { activeTheme, userPreferences, active3DTheme } = useTheme();
   const is3DMode = userPreferences?.is_3d_mode || false;
   const isMobile = useIsMobile();
   
-  const { chess, playerColor, isPlayerTurn, makeMove, resetGame, isThinking, gameStatus, lastMove: botLastMove, gameId } = useBotGame(difficulty);
+  const { chess, playerColor, isPlayerTurn, makeMove, resetGame, isThinking, gameStatus, lastMove: botLastMove, gameId } = useBotGame(power);
   
   const [selectedSquare, setSelectedSquare] = useState<Square | null>(null);
   const [legalMoves, setLegalMoves] = useState<Square[]>([]);
   const [isFullScreen, setIsFullScreen] = useState(false);
-  const [showDifficultySelector, setShowDifficultySelector] = useState(false);
 
-  const difficulties: Array<'easy' | 'moderate' | 'hard' | 'super-hard'> = ['easy', 'moderate', 'hard', 'super-hard'];
-  const currentIndex = difficulties.indexOf(difficulty);
-
-  const changeDifficulty = (newDifficulty: 'easy' | 'moderate' | 'hard' | 'super-hard') => {
-    setSearchParams({ difficulty: newDifficulty });
+  const changePower = (newPower: number) => {
+    setSearchParams({ power: newPower.toString() });
     resetGame();
-    setShowDifficultySelector(false);
   };
 
-  const nextDifficulty = () => {
-    const nextIndex = (currentIndex + 1) % difficulties.length;
-    changeDifficulty(difficulties[nextIndex]);
-  };
-
-  const prevDifficulty = () => {
-    const prevIndex = (currentIndex - 1 + difficulties.length) % difficulties.length;
-    changeDifficulty(difficulties[prevIndex]);
+  const adjustPower = (delta: number) => {
+    const newPower = Math.max(0, Math.min(100, power + delta));
+    changePower(newPower);
   };
 
   // ESC key handler to exit full-screen
@@ -81,48 +72,32 @@ const BotGame = () => {
     }
   };
 
-  const getDifficultyInfo = () => {
-    switch (difficulty) {
-      case 'easy':
-        return { 
-          color: 'text-green-400', 
-          bgColor: 'bg-green-500/10 border-green-500/30',
-          icon: Zap,
-          description: '~600-800 ELO • Makes frequent mistakes'
-        };
-      case 'moderate':
-        return { 
-          color: 'text-yellow-400', 
-          bgColor: 'bg-yellow-500/10 border-yellow-500/30',
-          icon: Target,
-          description: '~1200-1500 ELO • Occasional mistakes'
-        };
-      case 'hard':
-        return { 
-          color: 'text-red-400', 
-          bgColor: 'bg-red-500/10 border-red-500/30',
-          icon: Brain,
-          description: '~1800-2000 ELO • Strong player'
-        };
-      case 'super-hard':
-        return { 
-          color: 'text-purple-400', 
-          bgColor: 'bg-purple-500/10 border-purple-500/30',
-          icon: Brain,
-          description: '~2400+ ELO • Near Grandmaster'
-        };
-      default:
-        return { 
-          color: 'text-muted-foreground', 
-          bgColor: 'bg-secondary',
-          icon: Target,
-          description: ''
-        };
+  const getPowerInfo = () => {
+    if (power <= 33) {
+      return {
+        color: 'text-green-400',
+        bgColor: 'bg-green-500/10 border-green-500/30',
+        range: 'Easy',
+        description: 'Frequent mistakes • Good for practice'
+      };
+    } else if (power <= 66) {
+      return {
+        color: 'text-yellow-400',
+        bgColor: 'bg-yellow-500/10 border-yellow-500/30',
+        range: 'Medium',
+        description: 'Occasional mistakes • Tactical play'
+      };
+    } else {
+      return {
+        color: 'text-red-400',
+        bgColor: 'bg-red-500/10 border-red-500/30',
+        range: 'Hard',
+        description: 'Strong moves • Competitive strength'
+      };
     }
   };
 
-  const difficultyInfo = getDifficultyInfo();
-  const DifficultyIcon = difficultyInfo.icon;
+  const powerInfo = getPowerInfo();
 
   // Full-screen mode layout
   if (isFullScreen) {
@@ -240,33 +215,32 @@ const BotGame = () => {
               </Button>
             </div>
 
-            {/* Mobile Difficulty Swiper */}
+            {/* Mobile Power Control */}
             <div className="relative bg-card border-2 border-primary/20 rounded-xl p-4">
-              <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center justify-between gap-3 mb-3">
                 <Button
                   variant="ghost"
                   size="icon"
-                  onClick={prevDifficulty}
+                  onClick={() => adjustPower(-10)}
                   className="h-10 w-10 flex-shrink-0"
                 >
                   <ChevronLeft className="h-6 w-6" />
                 </Button>
 
                 <motion.div 
-                  key={difficulty}
-                  initial={{ opacity: 0, x: 20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: -20 }}
+                  key={power}
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
                   className="flex-1 text-center"
                 >
-                  <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg border ${difficultyInfo.bgColor}`}>
-                    <DifficultyIcon className={`h-6 w-6 ${difficultyInfo.color}`} />
+                  <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg border ${powerInfo.bgColor}`}>
+                    <Brain className={`h-6 w-6 ${powerInfo.color}`} />
                     <div className="text-left">
-                      <div className={`text-lg font-bold font-rajdhani ${difficultyInfo.color}`}>
-                        {difficulty.toUpperCase()}
+                      <div className={`text-lg font-bold font-rajdhani ${powerInfo.color}`}>
+                        POWER {power}
                       </div>
                       <div className="text-xs text-muted-foreground">
-                        {difficultyInfo.description}
+                        {powerInfo.description}
                       </div>
                     </div>
                   </div>
@@ -275,14 +249,14 @@ const BotGame = () => {
                 <Button
                   variant="ghost"
                   size="icon"
-                  onClick={nextDifficulty}
+                  onClick={() => adjustPower(10)}
                   className="h-10 w-10 flex-shrink-0"
                 >
                   <ChevronRight className="h-6 w-6" />
                 </Button>
               </div>
-              <p className="text-center text-xs text-muted-foreground mt-2">
-                ← Swipe to change difficulty →
+              <p className="text-center text-xs text-muted-foreground">
+                ← Adjust master power →
               </p>
             </div>
           </div>
@@ -296,13 +270,13 @@ const BotGame = () => {
             
             <div className="text-center flex-1">
               <h1 className="text-3xl sm:text-4xl font-bold font-rajdhani text-foreground">Practice Mode</h1>
-              <div className={`inline-flex items-center gap-2 mt-2 px-4 py-2 rounded-lg border ${difficultyInfo.bgColor}`}>
-                <DifficultyIcon className={`h-5 w-5 ${difficultyInfo.color}`} />
-                <span className={`text-lg font-semibold font-rajdhani ${difficultyInfo.color}`}>
-                  {difficulty.toUpperCase()}
+              <div className={`inline-flex items-center gap-2 mt-2 px-4 py-2 rounded-lg border ${powerInfo.bgColor}`}>
+                <Brain className={`h-5 w-5 ${powerInfo.color}`} />
+                <span className={`text-lg font-semibold font-rajdhani ${powerInfo.color}`}>
+                  POWER {power}
                 </span>
                 <span className="text-sm text-muted-foreground ml-2">
-                  {difficultyInfo.description}
+                  {powerInfo.range} • {powerInfo.description}
                 </span>
               </div>
             </div>

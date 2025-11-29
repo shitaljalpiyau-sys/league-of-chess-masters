@@ -20,7 +20,7 @@ const BotGame = () => {
   const is3DMode = userPreferences?.is_3d_mode || false;
   const isMobile = useIsMobile();
   
-  const { chess, playerColor, isPlayerTurn, makeMove, resetGame, isThinking, gameStatus, lastMove: botLastMove, gameId } = useBotGame(power);
+  const { chess, playerColor, isPlayerTurn, makeMove, resetGame, isThinking, gameStatus, lastMove: botLastMove, gameId, cacheHit } = useBotGame(power);
   
   const [selectedSquare, setSelectedSquare] = useState<Square | null>(null);
   const [legalMoves, setLegalMoves] = useState<Square[]>([]);
@@ -164,6 +164,28 @@ const BotGame = () => {
             </Card>
           </div>
         )}
+
+        {/* Cache Hit Animation */}
+        <AnimatePresence>
+          {cacheHit && (
+            <motion.div
+              initial={{ opacity: 0, y: 20, scale: 0.9 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: -10, scale: 0.95 }}
+              transition={{ duration: 0.3, ease: "easeOut" }}
+              className="absolute top-20 left-1/2 -translate-x-1/2 z-10"
+            >
+              <Card className="p-3 bg-green-500/20 backdrop-blur-md border-2 border-green-400/60 shadow-[0_0_24px_rgba(34,197,94,0.4)]">
+                <div className="flex items-center gap-2">
+                  <Zap className="h-5 w-5 text-green-400 drop-shadow-[0_0_8px_rgba(34,197,94,0.8)]" />
+                  <p className="text-sm font-bold text-white drop-shadow-[0_0_4px_rgba(255,255,255,0.6)]">
+                    Instant Move
+                  </p>
+                </div>
+              </Card>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* Full-screen Chessboard */}
         <div className="flex items-center justify-center w-full h-full p-4">
@@ -338,6 +360,28 @@ const BotGame = () => {
             </div>
           </Card>
         )}
+
+        {/* Cache Hit Animation */}
+        <AnimatePresence>
+          {cacheHit && (
+            <motion.div
+              initial={{ opacity: 0, y: 20, scale: 0.9 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: -10, scale: 0.95 }}
+              transition={{ duration: 0.3, ease: "easeOut" }}
+              className="fixed top-24 left-1/2 -translate-x-1/2 z-50"
+            >
+              <Card className="p-4 bg-green-500/20 backdrop-blur-md border-2 border-green-400/60 shadow-[0_0_24px_rgba(34,197,94,0.4)]">
+                <div className="flex items-center gap-3">
+                  <Zap className="h-6 w-6 text-green-400 drop-shadow-[0_0_8px_rgba(34,197,94,0.8)]" />
+                  <p className="text-base font-bold text-white drop-shadow-[0_0_4px_rgba(255,255,255,0.6)]">
+                    Instant Move
+                  </p>
+                </div>
+              </Card>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         <div className={`grid grid-cols-1 ${isMobile ? '' : 'lg:grid-cols-3'} gap-4 sm:gap-6`}>
           {/* Chessboard - Better responsive sizing */}

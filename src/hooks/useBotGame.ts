@@ -6,7 +6,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useXPSystem } from '@/hooks/useXPSystem';
 import { useBotAdaptiveDifficulty } from '@/hooks/useBotAdaptiveDifficulty';
 
-type Difficulty = 'easy' | 'moderate' | 'hard' | 'super-hard';
+type Power = number; // 0-100 continuous power level
 
 // Piece values for evaluation
 const PIECE_VALUES: { [key: string]: number } = {
@@ -46,46 +46,53 @@ interface DifficultyConfig {
   eloRange: string;
 }
 
-const DIFFICULTY_CONFIG: Record<Difficulty, DifficultyConfig> = {
-  // EASY MODE (600-800 ELO) - Human beginner with frequent mistakes
-  easy: { 
-    depth: 2, 
-    multipv: 4,
-    randomness: 0.6, 
-    blunderChance: 0.45,
-    thinkTime: [100, 250],
-    eloRange: '~600-800'
-  },
-  // MEDIUM MODE (1200-1500 ELO) - Intermediate player, occasional mistakes
-  moderate: { 
-    depth: 6, 
-    multipv: 3,
-    randomness: 0.25, 
-    blunderChance: 0.08,
-    thinkTime: [250, 600],
-    eloRange: '~1200-1500'
-  },
-  // HARD MODE (1800-2000 ELO) - Strong player, minimal mistakes
-  hard: { 
-    depth: 14, 
-    multipv: 1,
-    randomness: 0.05, 
-    blunderChance: 0,
-    thinkTime: [900, 1500],
-    eloRange: '~1800-2000'
-  },
-  // SUPER HARD MODE (2400+ ELO) - Near grandmaster strength
-  'super-hard': { 
-    depth: 24, 
-    multipv: 1,
-    randomness: 0, 
-    blunderChance: 0,
-    thinkTime: [2000, 4000],
-    eloRange: '~2400+'
-  }
+// Convert power level (0-100) to difficulty configuration
+const getPowerConfig = (power: Power): DifficultyConfig => {
+  // Non-linear power scaling for more dramatic differences
+  const normalizedPower = power / 100;
+  const scaledPower = Math.pow(normalizedPower, 1.5); // Non-linear curve
+  
+  // Depth: scales from 2 to 24
+  const depth = Math.max(2, Math.min(24, Math.round(2 + scaledPower * 22)));
+  
+  // MultiPV: 4 at low power, 1 at high power
+  const multipv = power <= 33 ? 4 : power <= 66 ? 3 : 1;
+  
+  // Randomness: high at low power, zero at high power
+  const randomness = Math.max(0, 0.6 - (scaledPower * 0.6));
+  
+  // Blunder chance: high at low power, zero above 50
+  const blunderChance = power <= 50 ? Math.max(0, 0.45 - (power / 50) * 0.45) : 0;
+  
+  // Think time: scales from 100-250ms to 1500-3000ms
+  const minThink = Math.round(100 + scaledPower * 1400);
+  const maxThink = Math.round(250 + scaledPower * 2750);
+  
+  return {
+    depth,
+    multipv,
+    randomness,
+    blunderChance,
+    thinkTime: [minThink, maxThink],
+    eloRange: `Power ${power}`
+  };
 };
 
-export const useBotGame = (difficulty: Difficulty = 'moderate') => {
+// Calculate XP reward based on power level
+export const getPowerXPReward = (power: Power): number => {
+  if (power <= 33) return 15;   // Easy range
+  if (power <= 66) return 40;   // Medium range
+  return 100;                   // Hard range
+};
+
+// Get power range label
+export const getPowerRange = (power: Power): string => {
+  if (power <= 33) return 'Easy';
+  if (power <= 66) return 'Medium';
+  return 'Hard';
+};
+
+export const useBotGame = (power: Power = 50) => {
   const [chess, setChess] = useState(new Chess());
   const [playerColor] = useState<'white' | 'black'>('white');
   const [isThinking, setIsThinking] = useState(false);
@@ -183,7 +190,7 @@ export const useBotGame = (difficulty: Difficulty = 'moderate') => {
 
   // Professional move selection with blunder injection and multipv + ADAPTIVE DIFFICULTY
   const getBotMove = useCallback(async (game: Chess): Promise<Move | null> => {
-    const baseConfig = DIFFICULTY_CONFIG[difficulty];
+    const baseConfig = getPowerConfig(power);
     const adaptive = getAdaptiveAdjustment();
     
     // Apply adaptive adjustments
@@ -253,7 +260,7 @@ export const useBotGame = (difficulty: Difficulty = 'moderate') => {
     // DEBUG LOGGING (adaptive difficulty feedback)
     if (process.env.NODE_ENV === 'development') {
       console.log('🤖 Bot Analysis:', {
-        baseDifficulty: difficulty,
+        basePower: power,
         adaptedDepth: config.depth,
         randomness: config.randomness,
         blunderChance: config.blunderChance,
@@ -289,7 +296,7 @@ export const useBotGame = (difficulty: Difficulty = 'moderate') => {
 
     // Default: return best move
     return scoredMoves[0]?.move || moves[0];
-  }, [difficulty, minimax, getAdaptiveAdjustment, detectTrick, winStreak, lossStreak]);
+  }, [power, minimax, getAdaptiveAdjustment, detectTrick, winStreak, lossStreak]);
 
   // Bot move execution (non-blocking UI)
   const makeBotMove = useCallback(async (currentGame: Chess) => {
@@ -420,14 +427,13 @@ export const useBotGame = (difficulty: Difficulty = 'moderate') => {
       // Mark XP as awarded BEFORE showing popup to prevent loops
       hasAwardedXP.current = true;
       
+      // Award XP based on power level (only on win)
       setTimeout(() => {
         if (playerWon) {
-          awardMatchXP('win', { fastCheckmate: isFastCheckmate });
-        } else if (isDraw) {
-          awardMatchXP('draw');
-        } else {
-          awardMatchXP('loss');
+          const xpReward = getPowerXPReward(power);
+          awardMatchXP('win', { fastCheckmate: isFastCheckmate, customXP: xpReward });
         }
+        // No XP for draw or loss in new system
       }, 500);
       
       const fenHistory: string[] = [new Chess().fen()];
@@ -446,13 +452,13 @@ export const useBotGame = (difficulty: Difficulty = 'moderate') => {
         player1_id: user.id,
         player2_id: user.id,
         player1_username: profile.username,
-        player2_username: `Bot (${difficulty})`,
+        player2_username: `Bot (Power ${power})`,
         player1_rating_before: profile.rating,
         player1_rating_after: profile.rating,
         player2_rating_before: 1200,
         player2_rating_after: 1200,
         player1_class: profile.class,
-        player2_class: difficulty === 'hard' ? 'A' : difficulty === 'moderate' ? 'B' : 'C',
+        player2_class: power > 66 ? 'A' : power > 33 ? 'B' : 'C',
         winner_id: playerWon ? user.id : isDraw ? null : user.id,
         result,
         pgn: chess.pgn(),
@@ -465,7 +471,7 @@ export const useBotGame = (difficulty: Difficulty = 'moderate') => {
     };
     
     saveGameToHistory();
-  }, [chess.isGameOver(), difficulty, user, playerColor, awardMatchXP, refreshProfile, recordGame]);
+  }, [chess.isGameOver(), power, user, playerColor, awardMatchXP, refreshProfile, recordGame]);
 
   return {
     chess,

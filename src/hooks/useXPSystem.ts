@@ -101,9 +101,13 @@ export const useXPSystem = () => {
       minorPieceCheckmate?: boolean;
       drawFromLosing?: boolean;
       fiveWinStreak?: boolean;
+      customXP?: number;
     }
   ) => {
-    const xp = calculateMatchXP(result, bonuses);
+    // Use customXP if provided (for bot games with power levels)
+    const xp = bonuses?.customXP !== undefined 
+      ? bonuses.customXP 
+      : calculateMatchXP(result, bonuses);
     let reason = "";
 
     switch (result) {

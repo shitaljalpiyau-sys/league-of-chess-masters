@@ -859,6 +859,7 @@ export type Database = {
           games_won: number
           hourly_income: number
           id: string
+          last_points_update: string
           league: string
           level: number
           numeric_user_id: number | null
@@ -878,6 +879,7 @@ export type Database = {
           games_won?: number
           hourly_income?: number
           id: string
+          last_points_update?: string
           league?: string
           level?: number
           numeric_user_id?: number | null
@@ -897,6 +899,7 @@ export type Database = {
           games_won?: number
           hourly_income?: number
           id?: string
+          last_points_update?: string
           league?: string
           level?: number
           numeric_user_id?: number | null

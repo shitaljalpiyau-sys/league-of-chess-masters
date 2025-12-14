@@ -27,30 +27,11 @@ export default function Marketplace() {
   const [rarityFilter, setRarityFilter] = useState<RarityFilter>('all');
   const [previewItem, setPreviewItem] = useState<any>(null);
   const [showPreviewModal, setShowPreviewModal] = useState(false);
-  const [userPoints, setUserPoints] = useState(profile?.points || 0);
-  const [hourlyIncome, setHourlyIncome] = useState(100);
-  const { points, updatePoints } = usePointsEarning(userPoints, hourlyIncome);
+  const { points, updatePoints } = usePointsEarning(user?.id);
 
   useEffect(() => {
     loadData();
-    loadUserIncome();
   }, []);
-
-  useEffect(() => {
-    if (profile) {
-      setUserPoints(profile.points);
-    }
-  }, [profile]);
-
-  const loadUserIncome = async () => {
-    if (!user) return;
-    const { data } = await supabase
-      .from('profiles')
-      .select('hourly_income')
-      .eq('id', user.id)
-      .single();
-    if (data) setHourlyIncome(data.hourly_income || 100);
-  };
 
   const loadData = async () => {
     // Load themes

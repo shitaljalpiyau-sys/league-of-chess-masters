@@ -1,23 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-
-// Class capacity limits
-const CLASS_LIMITS = {
-  ELITE: 5,
-  A: 1000,
-  B: 20000,
-  C: 30000,
-  D: Infinity,
-};
-
-// Hourly income per class
-const CLASS_INCOME = {
-  ELITE: 10000, // per hour
-  A: 417, // ~10000 per day
-  B: 139, // ~10000 per 3 days
-  C: 60, // ~10000 per week
-  D: 30, // ~10000 per 2 weeks
-};
+import { CLASS_LIMITS, CLASS_INCOME, PROMOTION_SLOTS } from "@/config/pointsEconomy";
 
 export const useWeeklyRankings = () => {
   // Initialize weekly ranking for user
@@ -110,8 +93,8 @@ export const useWeeklyRankings = () => {
     });
 
     // ELITE vs A
-    const topA = byClass.A.slice(0, 5);
-    const bottomElite = byClass.ELITE.slice(5);
+    const topA = byClass.A.slice(0, PROMOTION_SLOTS.A_TO_ELITE);
+    const bottomElite = byClass.ELITE.slice(PROMOTION_SLOTS.A_TO_ELITE);
     
     for (const player of topA) {
       await promotePlayer(player.user_id, "ELITE");
@@ -121,8 +104,8 @@ export const useWeeklyRankings = () => {
     }
 
     // A vs B
-    const topB = byClass.B.slice(0, 200);
-    const bottomA = byClass.A.slice(-200);
+    const topB = byClass.B.slice(0, PROMOTION_SLOTS.B_TO_A);
+    const bottomA = byClass.A.slice(-PROMOTION_SLOTS.B_TO_A);
     
     for (const player of topB) {
       await promotePlayer(player.user_id, "A");
@@ -132,8 +115,8 @@ export const useWeeklyRankings = () => {
     }
 
     // B vs C
-    const topC = byClass.C.slice(0, 500);
-    const bottomB = byClass.B.slice(-500);
+    const topC = byClass.C.slice(0, PROMOTION_SLOTS.C_TO_B);
+    const bottomB = byClass.B.slice(-PROMOTION_SLOTS.C_TO_B);
     
     for (const player of topC) {
       await promotePlayer(player.user_id, "B");
@@ -143,8 +126,8 @@ export const useWeeklyRankings = () => {
     }
 
     // C vs D
-    const topD = byClass.D.slice(0, 1000);
-    const bottomC = byClass.C.slice(-1000);
+    const topD = byClass.D.slice(0, PROMOTION_SLOTS.D_TO_C);
+    const bottomC = byClass.C.slice(-PROMOTION_SLOTS.D_TO_C);
     
     for (const player of topD) {
       await promotePlayer(player.user_id, "C");

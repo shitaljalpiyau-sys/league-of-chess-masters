@@ -1,65 +1,21 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { TrendingUp, TrendingDown, Trophy, Users, Clock, Award } from "lucide-react";
+import { GAME_CLASSES, PROMOTION_SLOTS } from "@/config/pointsEconomy";
 
 const NoticeBoard = () => {
-  const classes = [
-    {
-      name: "ELITE CLASS",
-      tier: "TOP TIER",
-      limit: "5 PLAYERS ONLY",
-      earnings: "10,000 POINTS PER HOUR",
-      hourlyRate: 10000,
-      description: "Highest rank in the entire game.",
-      color: "from-yellow-500 to-amber-600",
-      icon: Trophy,
-      badge: "legendary"
-    },
-    {
-      name: "CLASS A",
-      tier: "SECOND TIER",
-      limit: "1,000 PLAYERS",
-      earnings: "10,000 POINTS DAILY",
-      hourlyRate: 400,
-      description: "High-level competitive class.",
-      color: "from-blue-500 to-cyan-600",
-      icon: Award,
-      badge: "epic"
-    },
-    {
-      name: "CLASS B",
-      tier: "THIRD TIER",
-      limit: "20,000 PLAYERS",
-      earnings: "10,000 POINTS EVERY 3 DAYS",
-      hourlyRate: 140,
-      description: "Mid-tier class for consistent players.",
-      color: "from-purple-500 to-pink-600",
-      icon: Users,
-      badge: "rare"
-    },
-    {
-      name: "CLASS C",
-      tier: "FOURTH TIER",
-      limit: "30,000 PLAYERS",
-      earnings: "10,000 POINTS WEEKLY",
-      hourlyRate: 60,
-      description: "Beginner-friendly competitive class.",
-      color: "from-green-500 to-emerald-600",
-      icon: TrendingUp,
-      badge: "uncommon"
-    },
-    {
-      name: "CLASS D",
-      tier: "BASE TIER",
-      limit: "UNLIMITED PLAYERS",
-      earnings: "10,000 POINTS EVERY 2 WEEKS",
-      hourlyRate: 30,
-      description: "Starting class for all new players.",
-      color: "from-gray-500 to-slate-600",
-      icon: Clock,
-      badge: "common"
-    }
-  ];
+  const classIcons = {
+    ELITE: Trophy,
+    A: Award,
+    B: Users,
+    C: TrendingUp,
+    D: Clock,
+  };
+
+  const classes = GAME_CLASSES.map(gc => ({
+    ...gc,
+    icon: classIcons[gc.id as keyof typeof classIcons] || Clock,
+  }));
 
   const rankingSystem = [
     {
@@ -132,7 +88,7 @@ const NoticeBoard = () => {
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div className="space-y-1">
                       <div className="text-sm text-muted-foreground">Limit</div>
-                      <div className="font-semibold">{classInfo.limit}</div>
+                      <div className="font-semibold">{classInfo.limitDisplay}</div>
                     </div>
                     <div className="space-y-1">
                       <div className="text-sm text-muted-foreground">Earnings</div>
